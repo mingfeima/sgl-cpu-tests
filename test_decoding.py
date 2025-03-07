@@ -81,9 +81,9 @@ def _test_grouped_decode_attention_once(B, H_Q, H_KV, D, D_V, device):
     o = torch.zeros(B, H_Q, D_V, dtype=dtype, device=device)
     o_grouped = torch.zeros(B, H_Q, D_V, dtype=dtype, device=device)
 
-    req_to_token = torch.arange(total_tokens, device=device).reshape(B, seq_len)
-    b_req_idx = torch.arange(B, device=device)
-    b_seq_len = torch.full((B,), seq_len, device=device)
+    req_to_token = torch.arange(total_tokens, device=device).reshape(B, seq_len).to(torch.int32)
+    b_req_idx = torch.arange(B, device=device).to(torch.int64)
+    b_seq_len = torch.full((B,), seq_len, device=device).to(torch.int64)
 
     attn_logits = torch.empty(
         (B, H_Q, num_kv_splits, D_V + 1),
