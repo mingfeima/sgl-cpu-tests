@@ -94,7 +94,7 @@ def run_single_test(m, n, k, e, topk, dtype, renormalize=False, use_fp8_w8a8=Fal
     res = compare(torch_output, fused_output)
 
 
-run_single_test(2, 64, 32, 4, 2, torch.bfloat16)
+run_single_test(2, 32, 32, 4, 2, torch.bfloat16)
 run_single_test(2, 128, 32, 4, 2, torch.bfloat16, renormalize=True, prepack=False)
 run_single_test(2, 128, 32, 4, 2, torch.bfloat16, renormalize=True, prepack=True)
 run_single_test(114, 4096, 1024 + 32, 8, 2, torch.bfloat16, renormalize=True)
@@ -102,7 +102,7 @@ run_single_test(114, 4096, 1024 + 32, 8, 2, torch.bfloat16, renormalize=True)
 
 def test_weight_prepack(e, oc, ic):
 
-    BLOCK_N = 64
+    BLOCK_N = 32
 
     w1 = torch.randn(e, oc, ic, dtype = torch.bfloat16)
     packed_w1 = convert_weight_packed(w1)
