@@ -104,8 +104,10 @@ def test_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False):
 
     total_token_num = torch.sum(b_seq_len).item()
     extend_token_num = torch.sum(b_seq_len_extend).item()
-    k_buffer = torch.randn((total_token_num, H_KV, D), dtype=dtype)
-    v_buffer = torch.randn((total_token_num, H_KV, DV), dtype=dtype)
+
+    H_BUF = 1 if mla else H_KV
+    k_buffer = torch.randn((total_token_num, H_BUF, D), dtype=dtype)
+    v_buffer = torch.randn((total_token_num, H_BUF, DV), dtype=dtype)
 
     k_extend = torch.empty((extend_token_num, H_KV, D), dtype=dtype)
     v_extend = torch.empty((extend_token_num, H_KV, DV), dtype=dtype)
