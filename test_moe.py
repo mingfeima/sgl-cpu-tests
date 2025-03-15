@@ -104,10 +104,12 @@ def test_weight_prepack(e, oc, ic):
 
     BLOCK_N = 32
 
-    w1 = torch.randn(e, oc, ic, dtype = torch.bfloat16)
+    # randn a bf16 tensor would be super slow
+    w1 = torch.randn(e, oc, ic).to(torch.bfloat16)
     packed_w1 = convert_weight_packed(w1)
     ref = w1.view(e, int(oc/BLOCK_N), BLOCK_N, int(ic/2), 2).permute(0, 1, 3, 2, 4).contiguous().view(e, oc, ic)
 
     print("\n### test_weight_prepack: ", torch.equal(ref, packed_w1))
 
 test_weight_prepack(256, 16 * 8, 32 * 24)
+test_weight_prepack(160, 3072, 5120)

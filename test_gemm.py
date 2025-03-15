@@ -18,12 +18,10 @@ def run_single_test(M, N, K, has_bias):
 
     ref = ref.bfloat16()
 
-    out = torch.randn(M, N, dtype=torch.bfloat16)
-    weight_packed_linear(out, mat1, mat2, bias if has_bias else None, False)
+    out = weight_packed_linear(mat1, mat2, bias if has_bias else None, False)
 
-    out2 = torch.randn(M, N, dtype=torch.bfloat16)
     packed_mat2 = convert_weight_packed(mat2)
-    weight_packed_linear(out2, mat1, packed_mat2, bias if has_bias else None, True)
+    out2 = weight_packed_linear(mat1, packed_mat2, bias if has_bias else None, True)
 
     #print(ref)
     #print(out)
@@ -33,8 +31,6 @@ def run_single_test(M, N, K, has_bias):
 for has_bias in [True]:
     run_single_test(1, 32 * 13, 32 * 16, has_bias)
     run_single_test(101, 32 * 13, 32 * 16, has_bias)
-
-
 
 
 def test_weight_prepack(oc, ic):
@@ -48,3 +44,4 @@ def test_weight_prepack(oc, ic):
     print("\n### test_weight_prepack: ", torch.equal(ref, packed_w1))
 
 test_weight_prepack(16 * 8, 32 * 24)
+test_weight_prepack(160, 3072, 5120)
