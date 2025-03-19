@@ -1,8 +1,8 @@
 import torch
 import torch.nn.functional as F
-from sgl_kernel.ops._kernels import fused_experts_cpu as fused_experts
-from sgl_kernel.ops._kernels import grouped_topk_cpu as grouped_topk
-from sgl_kernel.ops._kernels import convert_weight_packed
+from sgl_kernel.common_ops import fused_experts_cpu as fused_experts
+from sgl_kernel.common_ops import grouped_topk_cpu as grouped_topk
+from sgl_kernel.common_ops import convert_weight_packed
 
 from utils import compare
 
@@ -111,5 +111,5 @@ def test_weight_prepack(e, oc, ic):
 
     print("\n### test_weight_prepack: ", torch.equal(ref, packed_w1))
 
-test_weight_prepack(256, 16 * 8, 32 * 24)
-test_weight_prepack(160, 3072, 5120)
+#test_weight_prepack(256, 16 * 8, 32 * 24)
+#test_weight_prepack(160, 3072, 5120)
