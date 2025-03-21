@@ -1,4 +1,5 @@
 import torch
+from sgl_kernel.common_ops import per_token_quant_int8_cpu
 from sgl_kernel.common_ops import int8_scaled_mm_cpu
 from sgl_kernel.common_ops import convert_weight_packed
 
@@ -58,16 +59,17 @@ def run_single_test(M, N, K, dtype, has_bias=False):
     Bs = torch.rand(N) * factor_for_scale
 
     bias = torch.randn(N) if has_bias else None
-
     ref_out = native_w8a8_per_token_matmul(Aq, Bq, As, Bs, bias, dtype)
-    out = int8_scaled_mm_cpu(A, Bq, Bs, bias if has_bias else None, False);
+
+    Aq2, As2 = per_token_quant_int8_cpu(A)
+    out = int8_scaled_mm_cpu(Aq2, Bq, As2, Bs, bias if has_bias else None, torch.bfloat16, False);
 
     compare(ref_out, out)
 
 
 for bias in [True, False]:
-    run_single_test(12, 32 * 12, 32 * 17, torch.bfloat16, bias)
-    run_single_test(1, 32, 32, torch.bfloat16, bias)
+    run_single_test(128, 32 * 12, 32 * 17, torch.bfloat16, bias)
+    run_single_test(2, 32, 32, torch.bfloat16, bias)
 
 def test_weight_prepack(oc, ic):
 

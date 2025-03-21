@@ -1,5 +1,5 @@
 import torch
-from sgl_kernel.ops._kernels import grouped_topk_cpu as grouped_topk
+from sgl_kernel.common_ops import grouped_topk_cpu as grouped_topk
 
 from utils import compare
 
@@ -85,6 +85,4 @@ for renormalize in [True, False]:
     run_single_test(1123, 32, 4, 3, 2, renormalize, torch.bfloat16)
     run_single_test(123, 64, 1, 6, 1, renormalize, torch.bfloat16)
     run_single_test(123, 256, 8, 4, 8, renormalize, torch.bfloat16)
-
-
-
+    run_single_test(123, 160, 8, 6, 2, renormalize, torch.bfloat16)

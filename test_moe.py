@@ -76,7 +76,7 @@ def fused_moe(a, w1, w2, score, topk, renormalize, prepack):
     packed_w2 = convert_weight_packed(w2) if prepack else w2
 
     inplace = True
-    return fused_experts(a, packed_w1, packed_w2, topk_weights, topk_ids, inplace, prepack)
+    return fused_experts(a, packed_w1, packed_w2, topk_weights, topk_ids, inplace, False, None, None, None, None, prepack)
 
 
 def run_single_test(m, n, k, e, topk, dtype, renormalize=False, use_fp8_w8a8=False, prepack=False):
