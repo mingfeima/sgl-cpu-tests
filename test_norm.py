@@ -1,14 +1,14 @@
 import logging
 from typing import Optional, Tuple, Union
+from time import time
 
 import torch
 import torch.nn as nn
 
 from utils import compare
 
-#from flashinfer.norm import rmsnorm, fused_add_rmsnorm
-from sgl_kernel.ops._kernels import rmsnorm_cpu as rmsnorm
-from sgl_kernel.ops._kernels import fused_add_rmsnorm_cpu as fused_add_rmsnorm
+from sgl_kernel.common_ops import rmsnorm_cpu as rmsnorm
+from sgl_kernel.common_ops import fused_add_rmsnorm_cpu as fused_add_rmsnorm
 
 torch.manual_seed(1111)
 
@@ -65,5 +65,19 @@ run_single_test([1024, 4096], torch.bfloat16, "cpu")
 run_single_test([1024, 4096 + 13], torch.float16, "cpu")
 
 
+def benchmark(M, K, niters=100000, dtype=torch.float16):
 
+    x = torch.randn(M, K, dtype=dtype)
+    weight = torch.randn(K, dtype=dtype)
+    residual = torch.randn(M, K, dtype=dtype)
+    variance_epsilon = 1e-6
 
+    t1 = time()
+    for _ in range(niters):
+        fused_add_rmsnorm(x, residual, weight, variance_epsilon)
+    t2 = time()
+    tt = (t2 - t1) * 1000 * 1000 / niters
+
+    print("### benchmark fused_add_rmsnorm: shape [", M, ", ", K, "], time = {:.3f} us".format(tt))
+
+benchmark(1, 5120)
