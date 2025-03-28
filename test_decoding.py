@@ -1,6 +1,6 @@
 import torch
 from torch.nn.functional import scaled_dot_product_attention
-from sgl_kernel.ops._kernels import decode_attention_cpu as decode_attention
+from sgl_kernel.common_ops import decode_attention_cpu as decode_attention
 
 from time import time
 
@@ -59,7 +59,8 @@ def _run_sdpa_forward_decode(
 
 def _test_grouped_decode_attention_once(B, H_Q, H_KV, D, D_V, device):
     dtype = torch.bfloat16
-    seq_len = 1334  # This represents the number of tokens already in the sequence
+    # This represents the number of tokens already in the sequence
+    seq_len = 1024
     total_tokens = B * seq_len
     sm_scale = 1.0 / (D**0.5)
     logit_cap = 0.0
@@ -91,7 +92,7 @@ def _test_grouped_decode_attention_once(B, H_Q, H_KV, D, D_V, device):
         device=device,
     )
 
-    niter = 1000
+    niter = 10000
 
     t1 = time()
     for _ in range(niter):
@@ -122,10 +123,10 @@ def _test_grouped_decode_attention_once(B, H_Q, H_KV, D, D_V, device):
             enable_gqa=enable_gqa
         )
     t4 = time()
-    tt1 = (t2 - t1) * 1000 / niter
-    tt2 = (t4 - t3) * 1000 / niter
-    print("opt takes {:.4f} ms".format(tt1))
-    print("ref takes {:.4f} ms".format(tt2))
+    tt1 = (t2 - t1) * 1000 * 1000 / niter
+    tt2 = (t4 - t3) * 1000 * 1000 / niter
+    print("opt takes {:.4f} us".format(tt1))
+    print("ref takes {:.4f} us".format(tt2))
 
     #print(o)
     #print(o_grouped)
@@ -146,8 +147,9 @@ def test_grouped_decode_attention(device="cuda"):
         #(2, 64, 1, 13, 13),
         #(2, 128, 1, 80, 80),
         #(2, 128, 2, 512, 512),
-        (1, 16, 1, 576, 512),
-        (1, 16, 16, 576, 512),
+        #(1, 16, 1, 576, 512),
+        #(1, 16, 16, 576, 512),
+        (1, 22, 1, 576, 512),
     ]
 
     for B, H_Q, H_KV, D, D_V in configs:
