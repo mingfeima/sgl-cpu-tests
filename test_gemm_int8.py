@@ -1,6 +1,7 @@
 import torch
 from sgl_kernel.common_ops import per_token_quant_int8_cpu
 from sgl_kernel.common_ops import int8_scaled_mm_cpu
+from sgl_kernel.common_ops import int8_scaled_mm_with_quant
 from sgl_kernel.common_ops import convert_weight_packed
 
 from utils import compare
@@ -65,6 +66,10 @@ def run_single_test(M, N, K, dtype, has_bias=False):
     out = int8_scaled_mm_cpu(Aq2, Bq, As2, Bs, bias if has_bias else None, torch.bfloat16, False);
 
     compare(ref_out, out)
+
+    # test the fused version
+    fused_out = int8_scaled_mm_with_quant(A, Bq, Bs, bias if has_bias else None, torch.bfloat16, False);
+    compare(ref_out, fused_out)
 
 
 for bias in [True, False]:
