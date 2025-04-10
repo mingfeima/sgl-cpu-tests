@@ -74,6 +74,14 @@ def _test_grouped_decode_attention_once(B, H_Q, H_KV, D, D_V, device):
     k_buffer = torch.randn(total_tokens, H_KV, D, dtype=dtype, device=device)
     v_buffer = torch.randn(total_tokens, H_KV, D_V, dtype=dtype, device=device)
 
+    key = torch.randn(B, H_KV, D, dtype=dtype)
+    value = torch.randn(B, H_KV, D_V, dtype=dtype)
+    loc = torch.randint(0, 10, (B,)).to(torch.int32)
+
+    # set kv cache
+    k_buffer[loc] = key
+    v_buffer[loc] = value
+
     #q.fill_(1)
     #k_buffer.fill_(1)
     #v_buffer.fill_(1)
@@ -92,15 +100,18 @@ def _test_grouped_decode_attention_once(B, H_Q, H_KV, D, D_V, device):
         device=device,
     )
 
-    niter = 10000
+    niter = 1000
 
     t1 = time()
     for _ in range(niter):
         decode_attention(
             q,
-            o,
             k_buffer,
             v_buffer,
+            o,
+            key,
+            value,
+            loc,
             attn_logits,
             req_to_token,
             b_req_idx,
@@ -128,18 +139,17 @@ def _test_grouped_decode_attention_once(B, H_Q, H_KV, D, D_V, device):
     print("opt takes {:.4f} us".format(tt1))
     print("ref takes {:.4f} us".format(tt2))
 
-    #print(o)
-    #print(o_grouped)
+    #print(o, o.size())
+    #print(o_grouped, o_grouped.size())
     cos_sim = torch.nn.functional.cosine_similarity(
         o.flatten(), o_grouped.flatten(), dim=0
     )
     print("cos_sim = ", cos_sim.item(), " > 0.99: ",  cos_sim.item() > 0.99)
-    print("allclose: ", torch.allclose(o, o_grouped, atol=3e-2))
+    print("allclose: ", torch.allclose(o, o_grouped, atol=3e-2), "\n")
 
 
 def test_grouped_decode_attention(device="cuda"):
     configs = [
-        #(1, 2, 2, 13, 17),
         #(2, 16, 16, 64, 64),
         #(2, 16, 1, 16, 16),
         #(2, 32, 8, 33, 55),
@@ -150,6 +160,7 @@ def test_grouped_decode_attention(device="cuda"):
         #(1, 16, 1, 576, 512),
         #(1, 16, 16, 576, 512),
         (1, 22, 1, 576, 512),
+        (1, 40, 8, 128, 128),
     ]
 
     for B, H_Q, H_KV, D, D_V in configs:
