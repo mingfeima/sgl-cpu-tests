@@ -1,6 +1,7 @@
 import torch
-from sgl_kernel.ops._kernels import weight_packed_linear
-from sgl_kernel.ops._kernels import convert_weight_packed
+from sgl_kernel.common_ops import weight_packed_linear
+from sgl_kernel.common_ops import convert_weight_packed
+from time import time
 
 from utils import compare
 
@@ -23,8 +24,6 @@ def run_single_test(M, N, K, has_bias):
     packed_mat2 = convert_weight_packed(mat2)
     out2 = weight_packed_linear(mat1, packed_mat2, bias if has_bias else None, True)
 
-    #print(ref)
-    #print(out)
     compare(ref, out)
     compare(ref, out2)
 
@@ -44,4 +43,24 @@ def test_weight_prepack(oc, ic):
     print("\n### test_weight_prepack: ", torch.equal(ref, packed_w1))
 
 test_weight_prepack(16 * 8, 32 * 24)
-test_weight_prepack(160, 3072, 5120)
+#test_weight_prepack(160, 3072, 5120)
+
+def run_single_bench(M, N, K):
+
+    mat1 = torch.randn(M, K, dtype=torch.bfloat16)
+    mat2 = torch.randn(N, K, dtype=torch.bfloat16)
+    packed_mat2 = convert_weight_packed(mat2)
+
+    niters = 100000
+    for _ in range(int(niters / 100)):
+        out = weight_packed_linear(mat1, packed_mat2, None, True)
+
+    t1 = time()
+    for _ in range(niters):
+        out = weight_packed_linear(mat1, packed_mat2, None, True)
+    t2 = time()
+    tt = (t2 - t1) / niters * 1000 * 1000 # us
+
+    print(f"\n### bench: gemm: M = {M}, N = {N}, K = {K}, time = {tt:.3f} us")
+
+run_single_bench(1, 256, 7168)
