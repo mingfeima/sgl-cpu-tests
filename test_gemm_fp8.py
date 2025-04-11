@@ -72,8 +72,8 @@ def convert_weight(weight, scale_block_size, A_dtype):
     return q_fp8_reshape, scales, w_dq
 
 
-def run_single_test(M, N, K, has_bias, prepack):
-    print(f"### gemm_fp8: M = {M}, N = {N}, K = {K}, has_bias = {has_bias}, prepack = {prepack}")
+def run_single_test(M, N, K, has_bias, prepack, chunk=False, bench=False):
+    print(f"### gemm_fp8: M = {M}, N = {N}, K = {K}, has_bias = {has_bias}, prepack = {prepack}, chunk = {chunk}")
 
     scale_block_size_N = 64
     scale_block_size_K = 128
@@ -82,7 +82,10 @@ def run_single_test(M, N, K, has_bias, prepack):
     A_dtype = torch.bfloat16
 
     model = Mod(K, N, has_bias).eval()
-    data = torch.randn(M, K, dtype=A_dtype)
+    if chunk:
+        data = torch.randn(M, K + 6, dtype=A_dtype).narrow(1, 0, K)
+    else:
+        data = torch.randn(M, K, dtype=A_dtype)
 
     weight = model.linear.weight  # (N, K)
 
@@ -109,10 +112,40 @@ def run_single_test(M, N, K, has_bias, prepack):
         prepack
     )
     compare(ref, opt)
+    
+    if bench:
+        niters = 1000
+        
+        t0 = time()
+        for _ in range(niters):
+            if has_bias:
+                ref = torch.matmul(data.to(A_dtype), dq_weight.T) + bias.to(A_dtype)
+            else:
+                ref = torch.matmul(data.to(A_dtype), dq_weight.T)
+        t1 = time()
+        t_native = (t1 - t0) / niters * 1000 * 1000 # us
+        
+        t2 = time()
+        for _ in range(niters):
+            fp8_scaled_mm_cpu(
+                data,
+                fp8_weight,
+                scales,
+                [scale_block_size_N, scale_block_size_K],
+                bias if has_bias else None,
+                data.dtype,
+                prepack
+            )
+        t3 = time()
+        t_opt = (t3 - t2) / niters * 1000 * 1000 # us
+        print(f"### gemm_fp8 benchmark: M = {M}, N = {N}, K = {K}, has_bias = {has_bias}, prepack = {prepack}, chunk = {chunk}")
+        print(f"gemm_bf16(native): {t_native} us, gemm_fp8(opt): {t_opt} us")
 
 
 for M, N, K, has_bias, prepack in product([1, 2, 11, 111], [128, 224], [512, 576], [False, True], [False, True]):
     run_single_test(M, N, K, has_bias, prepack)
 
-# TODO: test mat1_strideM and out_strideM
-# TODO: run_single_bench
+# test mat1_strideM
+run_single_test(M=14, N=160, K=768, has_bias=True, prepack=True, chunk=True)
+
+run_single_test(M=1, N=2816, K=7168, has_bias=True, prepack=True, chunk=False, bench=True)
