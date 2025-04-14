@@ -67,7 +67,7 @@ def run_single_test(m, n, k, routed_scaling_factor, dtype, prepack):
     assert scale_block_size_N <= n
     assert scale_block_size_K <= k
 
-    hidden_states = torch.randn(m, k, dtype=dtype)
+    hidden_states = torch.randn(m, k, dtype=dtype) / k
     w1_fp32 = (torch.randn(2 * n, k, dtype=torch.float32) - 0.5) * 2
     w1, w1_s, w1_dq = convert_weight(w1_fp32, [scale_block_size_N, scale_block_size_K], dtype)
     w2_fp32 = (torch.randn(k, n, dtype=torch.float32) - 0.5) * 2
