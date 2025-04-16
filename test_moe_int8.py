@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as F
-from sgl_kernel.common_ops import fused_experts_cpu as fused_experts
-from sgl_kernel.common_ops import convert_weight_packed
+import sgl_kernel
 import math
 
 from utils import compare
@@ -121,9 +120,9 @@ def run_single_test(M, N, K, E, topk, dtype, prepack):
     ref_out = torch_w8a8_per_column_moe(a, w1, w2, w1_s, w2_s, topk_weight, topk_ids, topk)
 
     inplace = True
-    packed_w1 = convert_weight_packed(w1) if prepack else w1
-    packed_w2 = convert_weight_packed(w2) if prepack else w2
-    out = fused_experts(a, packed_w1, packed_w2, topk_weight, topk_ids.to(torch.int32), inplace, True, w1_s, w2_s, None, None, prepack)
+    packed_w1 = torch.ops.sgl_kernel.convert_weight_packed(w1) if prepack else w1
+    packed_w2 = torch.ops.sgl_kernel.convert_weight_packed(w2) if prepack else w2
+    out = torch.ops.sgl_kernel.fused_experts_cpu(a, packed_w1, packed_w2, topk_weight, topk_ids.to(torch.int32), inplace, True, w1_s, w2_s, None, None, prepack)
 
     print("### using default atol=rtol=0.01 for torch.bfloat16: (may fail for large input shape")
     compare(ref_out, out)

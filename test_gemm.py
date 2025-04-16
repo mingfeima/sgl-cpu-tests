@@ -1,6 +1,6 @@
 import torch
-from sgl_kernel.common_ops import weight_packed_linear
-from sgl_kernel.common_ops import convert_weight_packed
+import sgl_kernel
+
 from time import time
 
 from utils import compare
@@ -19,10 +19,10 @@ def run_single_test(M, N, K, has_bias):
 
     ref = ref.bfloat16()
 
-    out = weight_packed_linear(mat1, mat2, bias if has_bias else None, False)
+    out = torch.ops.sgl_kernel.weight_packed_linear(mat1, mat2, bias if has_bias else None, False)
 
-    packed_mat2 = convert_weight_packed(mat2)
-    out2 = weight_packed_linear(mat1, packed_mat2, bias if has_bias else None, True)
+    packed_mat2 = torch.ops.sgl_kernel.convert_weight_packed(mat2)
+    out2 = torch.ops.sgl_kernel.weight_packed_linear(mat1, packed_mat2, bias if has_bias else None, True)
 
     compare(ref, out)
     compare(ref, out2)
@@ -37,7 +37,7 @@ def test_weight_prepack(oc, ic):
     BLOCK_N = 32
 
     w1 = torch.randn(oc, ic, dtype = torch.bfloat16)
-    packed_w1 = convert_weight_packed(w1)
+    packed_w1 = torch.ops.sgl_kernel.convert_weight_packed(w1)
     ref = w1.view(int(oc/BLOCK_N), BLOCK_N, int(ic/2), 2).permute(0, 2, 1, 3).contiguous().view(oc, ic)
 
     print("\n### test_weight_prepack: ", torch.equal(ref, packed_w1))
@@ -49,22 +49,22 @@ def run_single_bench(M, N, K):
 
     mat1 = torch.randn(M, K, dtype=torch.bfloat16)
     mat2 = torch.randn(N, K, dtype=torch.bfloat16)
-    packed_mat2 = convert_weight_packed(mat2)
+    packed_mat2 = torch.ops.sgl_kernel.convert_weight_packed(mat2)
 
     L = 100
     mat1 = [torch.randn(M, K, dtype=torch.bfloat16) for _ in range(L)]
     mat2 = [torch.randn(N, K, dtype=torch.bfloat16) for _ in range(L)]
-    packed_mat2 = [convert_weight_packed(t) for t in mat2]
+    packed_mat2 = [torch.ops.sgl_kernel.convert_weight_packed(t) for t in mat2]
 
     niters = 500
     for _ in range(int(niters / 100)):
         for l in range(L):
-            out = weight_packed_linear(mat1[l], packed_mat2[l], None, True)
+            out = torch.ops.sgl_kernel.weight_packed_linear(mat1[l], packed_mat2[l], None, True)
 
     t1 = time()
     for _ in range(niters):
         for l in range(L):
-            out = weight_packed_linear(mat1[l], packed_mat2[l], None, True)
+            out = torch.ops.sgl_kernel.weight_packed_linear(mat1[l], packed_mat2[l], None, True)
     t2 = time()
     tt = (t2 - t1) / niters / L * 1000 * 1000 # us
 

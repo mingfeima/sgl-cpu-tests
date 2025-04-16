@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 from utils import compare
 
-from sgl_kernel.ops._kernels import silu_and_mul_cpu as silu_and_mul
+import sgl_kernel
 
 torch.manual_seed(1111)
 
@@ -22,7 +22,7 @@ def run_single_test(shape, dtype, device):
     output_shape = x.shape[:-1] + (d,)
     out = torch.empty(output_shape, dtype=x.dtype, device=x.device)
 
-    silu_and_mul(out, x)
+    out = torch.ops.sgl_kernel.silu_and_mul_cpu(x)
     ref_out = forward_native(x)
 
     compare(out, ref_out, False)

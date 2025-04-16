@@ -1,6 +1,5 @@
 import torch
-from sgl_kernel.common_ops import qkv_proj_with_rope
-from sgl_kernel.common_ops import convert_weight_packed
+import sgl_kernel
 
 from utils import compare
 
@@ -143,13 +142,13 @@ def test_qkv_projection(B, hidden_size, dtype=torch.bfloat16):
 
     ## w_kc passed in [H, OC, IC]
     eps = 1e-6
-    qa_packed = convert_weight_packed(q_a_proj_weight)
-    qb_packed = convert_weight_packed(q_b_proj_weight)
-    kva_packed = convert_weight_packed(kv_a_proj_weight)
-    wkc_packed = convert_weight_packed(w_kc)
+    qa_packed = torch.ops.sgl_kernel.convert_weight_packed(q_a_proj_weight)
+    qb_packed = torch.ops.sgl_kernel.convert_weight_packed(q_b_proj_weight)
+    kva_packed = torch.ops.sgl_kernel.convert_weight_packed(kv_a_proj_weight)
+    wkc_packed = torch.ops.sgl_kernel.convert_weight_packed(w_kc)
 
     # bfloat16
-    q_input2, k_input2, v_input2 = qkv_proj_with_rope(hidden_states, qa_packed,
+    q_input2, k_input2, v_input2 = torch.ops.sgl_kernel.qkv_proj_with_rope(hidden_states, qa_packed,
         qb_packed, kva_packed, wkc_packed, norm_weight1, norm_weight2, pos, cos_sin_cache, eps,
         False, None, None, None, True)
   
@@ -173,12 +172,12 @@ def test_qkv_projection(B, hidden_size, dtype=torch.bfloat16):
     compare(k_input, k_input3)
     compare(v_input, v_input3)
 
-    w1_q_packed = convert_weight_packed(w1_q)
-    w2_q_packed = convert_weight_packed(w2_q)
-    w3_q_packed = convert_weight_packed(w3_q)
+    w1_q_packed = torch.ops.sgl_kernel.convert_weight_packed(w1_q)
+    w2_q_packed = torch.ops.sgl_kernel.convert_weight_packed(w2_q)
+    w3_q_packed = torch.ops.sgl_kernel.convert_weight_packed(w3_q)
 
     print("\nCompare Ref int8 and C++ int8:")
-    q_input4, k_input4, v_input4 = qkv_proj_with_rope(hidden_states, w1_q_packed,
+    q_input4, k_input4, v_input4 = torch.ops.sgl_kernel.qkv_proj_with_rope(hidden_states, w1_q_packed,
         w2_q_packed, w3_q_packed, wkc_packed, norm_weight1, norm_weight2, pos, cos_sin_cache, eps,
         True, w1_s, w2_s, w3_s, True)
 

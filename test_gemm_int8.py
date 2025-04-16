@@ -1,8 +1,5 @@
 import torch
-from sgl_kernel.common_ops import per_token_quant_int8_cpu
-from sgl_kernel.common_ops import int8_scaled_mm_cpu
-from sgl_kernel.common_ops import int8_scaled_mm_with_quant
-from sgl_kernel.common_ops import convert_weight_packed
+import sgl_kernel
 
 from utils import compare
 
@@ -62,13 +59,13 @@ def run_single_test(M, N, K, dtype, has_bias=False):
     bias = torch.randn(N) if has_bias else None
     ref_out = native_w8a8_per_token_matmul(Aq, Bq, As, Bs, bias, dtype)
 
-    Aq2, As2 = per_token_quant_int8_cpu(A)
-    out = int8_scaled_mm_cpu(Aq2, Bq, As2, Bs, bias if has_bias else None, torch.bfloat16, False);
+    Aq2, As2 = torch.ops.sgl_kernel.per_token_quant_int8_cpu(A)
+    out = torch.ops.sgl_kernel.int8_scaled_mm_cpu(Aq2, Bq, As2, Bs, bias if has_bias else None, torch.bfloat16, False);
 
     compare(ref_out, out)
 
     # test the fused version
-    fused_out = int8_scaled_mm_with_quant(A, Bq, Bs, bias if has_bias else None, torch.bfloat16, False);
+    fused_out = torch.ops.sgl_kernel.int8_scaled_mm_with_quant(A, Bq, Bs, bias if has_bias else None, torch.bfloat16, False);
     compare(ref_out, fused_out)
 
 
@@ -82,7 +79,7 @@ def test_weight_prepack(oc, ic):
 
     off = torch.randint(low=-128, high=128, size=(1, ic), dtype=torch.int32).fill_(128)
     w = torch.randint(low=-128, high=128, size=(oc, ic), dtype=torch.int8)
-    packed_w = convert_weight_packed(w)
+    packed_w = torch.ops.sgl_kernel.convert_weight_packed(w)
 
     comp = torch.matmul(off, w.t().to(torch.int32))
     packed_w1 = packed_w.view(-1).narrow(0, 0, oc * ic).view(oc, ic)

@@ -1,6 +1,7 @@
 import torch
 from torch.nn.functional import scaled_dot_product_attention
-from sgl_kernel.ops._kernels import extend_attention_cpu as extend_attention
+import sgl_kernel
+
 from utils import compare
 
 torch.manual_seed(1111)
@@ -163,7 +164,7 @@ def test_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False):
     )
 
     o_extend = torch.empty((extend_token_num, H_Q, DV), dtype=dtype)
-    extend_attention(
+    torch.ops.sgl_kernel.extend_attention_cpu(
         q_extend,
         k_extend,
         v_extend,

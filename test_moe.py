@@ -1,8 +1,6 @@
 import torch
 import torch.nn.functional as F
-from sgl_kernel.common_ops import fused_experts_cpu as fused_experts
-from sgl_kernel.common_ops import grouped_topk_cpu as grouped_topk
-from sgl_kernel.common_ops import convert_weight_packed
+import sgl_kernel
 
 from utils import compare
 
@@ -59,9 +57,7 @@ def fused_moe(a, w1, w2, score, topk, renormalize, prepack):
     B, D = a.shape
     topk_weights = torch.empty(B, topk, dtype=torch.float32)
     topk_ids = torch.empty(B, topk, dtype=torch.int32)
-    grouped_topk(
-        topk_weights,
-        topk_ids,
+    topk_weights, topk_ids = torch.ops.sgl_kernel.grouped_topk_cpu(
         a,
         score,
         topk,
@@ -72,11 +68,11 @@ def fused_moe(a, w1, w2, score, topk, renormalize, prepack):
     #print(topk_weights, topk_weights.size())
     #print(topk_ids, topk_ids.size())
 
-    packed_w1 = convert_weight_packed(w1) if prepack else w1
-    packed_w2 = convert_weight_packed(w2) if prepack else w2
+    packed_w1 = torch.ops.sgl_kernel.convert_weight_packed(w1) if prepack else w1
+    packed_w2 = torch.ops.sgl_kernel.convert_weight_packed(w2) if prepack else w2
 
     inplace = True
-    return fused_experts(a, packed_w1, packed_w2, topk_weights, topk_ids, inplace, False, None, None, None, None, prepack)
+    return torch.ops.sgl_kernel.fused_experts_cpu(a, packed_w1, packed_w2, topk_weights, topk_ids, inplace, False, None, None, None, None, prepack)
 
 
 def run_single_test(m, n, k, e, topk, dtype, renormalize=False, use_fp8_w8a8=False, prepack=False):
@@ -106,7 +102,7 @@ def test_weight_prepack(e, oc, ic):
 
     # randn a bf16 tensor would be super slow
     w1 = torch.randn(e, oc, ic).to(torch.bfloat16)
-    packed_w1 = convert_weight_packed(w1)
+    packed_w1 = torch.ops.sgl_kernel.convert_weight_packed(w1)
     ref = w1.view(e, int(oc/BLOCK_N), BLOCK_N, int(ic/2), 2).permute(0, 1, 3, 2, 4).contiguous().view(e, oc, ic)
 
     print("\n### test_weight_prepack: ", torch.equal(ref, packed_w1))

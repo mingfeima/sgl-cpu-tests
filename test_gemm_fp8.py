@@ -5,7 +5,7 @@ from time import time
 import torch
 import torch.nn as nn
 
-from sgl_kernel.common_ops import convert_weight_packed, fp8_scaled_mm_cpu
+import sgl_kernel
 from time import time
 
 from utils import compare
@@ -100,9 +100,9 @@ def run_single_test(M, N, K, has_bias, prepack, chunk=False, bench=False):
         ref = torch.matmul(data.to(A_dtype), dq_weight.T)
 
     if prepack:
-        fp8_weight = convert_weight_packed(fp8_weight)
+        fp8_weight = torch.ops.sgl_kernel.convert_weight_packed(fp8_weight)
 
-    opt = fp8_scaled_mm_cpu(
+    opt = torch.ops.sgl_kernel.fp8_scaled_mm_cpu(
         data,
         fp8_weight,
         scales,
@@ -127,7 +127,7 @@ def run_single_test(M, N, K, has_bias, prepack, chunk=False, bench=False):
         
         t2 = time()
         for _ in range(niters):
-            fp8_scaled_mm_cpu(
+            torch.ops.sgl_kernel.fp8_scaled_mm_cpu(
                 data,
                 fp8_weight,
                 scales,
