@@ -138,8 +138,8 @@ def run_single_test(M, N, K, has_bias, prepack, chunk=False, bench=False):
             )
         t3 = time()
         t_opt = (t3 - t2) / niters * 1000 * 1000 # us
-        print(f"### gemm_fp8 benchmark: M = {M}, N = {N}, K = {K}, has_bias = {has_bias}, prepack = {prepack}, chunk = {chunk}")
-        print(f"gemm_bf16(native): {t_native} us, gemm_fp8(opt): {t_opt} us")
+        print(f"\n### gemm_fp8 benchmark: M = {M}, N = {N}, K = {K}, has_bias = {has_bias}, prepack = {prepack}, chunk = {chunk}")
+        print(f"gemm_bf16(native): {t_native:.3f} us, gemm_fp8(opt): {t_opt:.3f} us")
 
 
 for M, N, K, has_bias, prepack in product([1, 2, 11, 111], [128, 224], [512, 576], [False, True], [False, True]):
@@ -147,5 +147,4 @@ for M, N, K, has_bias, prepack in product([1, 2, 11, 111], [128, 224], [512, 576
 
 # test mat1_strideM
 run_single_test(M=14, N=160, K=768, has_bias=True, prepack=True, chunk=True)
-
 run_single_test(M=1, N=2816, K=7168, has_bias=True, prepack=True, chunk=False, bench=True)

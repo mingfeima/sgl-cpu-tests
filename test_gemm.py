@@ -51,15 +51,22 @@ def run_single_bench(M, N, K):
     mat2 = torch.randn(N, K, dtype=torch.bfloat16)
     packed_mat2 = convert_weight_packed(mat2)
 
-    niters = 100000
+    L = 100
+    mat1 = [torch.randn(M, K, dtype=torch.bfloat16) for _ in range(L)]
+    mat2 = [torch.randn(N, K, dtype=torch.bfloat16) for _ in range(L)]
+    packed_mat2 = [convert_weight_packed(t) for t in mat2]
+
+    niters = 500
     for _ in range(int(niters / 100)):
-        out = weight_packed_linear(mat1, packed_mat2, None, True)
+        for l in range(L):
+            out = weight_packed_linear(mat1[l], packed_mat2[l], None, True)
 
     t1 = time()
     for _ in range(niters):
-        out = weight_packed_linear(mat1, packed_mat2, None, True)
+        for l in range(L):
+            out = weight_packed_linear(mat1[l], packed_mat2[l], None, True)
     t2 = time()
-    tt = (t2 - t1) / niters * 1000 * 1000 # us
+    tt = (t2 - t1) / niters / L * 1000 * 1000 # us
 
     print(f"\n### bench: gemm: M = {M}, N = {N}, K = {K}, time = {tt:.3f} us")
 

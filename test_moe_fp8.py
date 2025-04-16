@@ -67,14 +67,15 @@ def run_single_test(m, n, k, routed_scaling_factor, dtype, prepack):
     assert scale_block_size_N <= n
     assert scale_block_size_K <= k
 
-    hidden_states = torch.randn(m, k, dtype=dtype) / k
-    w1_fp32 = (torch.randn(2 * n, k, dtype=torch.float32) - 0.5) * 2
+    hidden_states = torch.randn(m, k, dtype=dtype) / k * 5
+    w1_fp32 = torch.randn(2 * n, k)
     w1, w1_s, w1_dq = convert_weight(w1_fp32, [scale_block_size_N, scale_block_size_K], dtype)
-    w2_fp32 = (torch.randn(k, n, dtype=torch.float32) - 0.5) * 2
+    w2_fp32 = torch.randn(k, n)
     w2, w2_s, w2_dq = convert_weight(w2_fp32, [scale_block_size_N, scale_block_size_K], dtype)
     fused_output = torch.randn(m, k, dtype=dtype) / k
     hidden_states2 = hidden_states.clone()
 
+    print(hidden_states.dtype, w1_dq.dtype, w2_dq.dtype)
     a = torch.matmul(hidden_states, w1_dq.transpose(0, 1))
     a2 = SiluAndMul(a)
     a3 = torch.matmul(a2, w2_dq.transpose(0, 1))
@@ -85,7 +86,8 @@ def run_single_test(m, n, k, routed_scaling_factor, dtype, prepack):
 
     c = shared_expert(hidden_states2, w1, w2, fused_output, routed_scaling_factor, True,
                         False, True, w1_s, w2_s, [scale_block_size_N, scale_block_size_K], None, None, True)
-    compare(a4, c)
+    compare(a4, c, True)
 
+run_single_test(  2, 1024, 1024, 16, torch.bfloat16, False)
 run_single_test(121, 512, 512, 16, torch.bfloat16, False)
 # # run_single_test(121, 32*4, 32*2, 16, torch.bfloat16)
