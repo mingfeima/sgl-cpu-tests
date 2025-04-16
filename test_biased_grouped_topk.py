@@ -1,5 +1,5 @@
 import torch
-from sgl_kernel.common_ops import biased_grouped_topk_cpu as grouped_topk
+import sgl_kernel
 
 from utils import compare
 
@@ -68,9 +68,7 @@ def run_single_test(M, E, G, topk, topk_group, renormalize, dtype):
         M, topk, dtype=torch.float32, device=hidden_states.device
     )
     topk_ids = torch.empty(M, topk, dtype=torch.int32, device=hidden_states.device)
-    grouped_topk(
-        topk_weights,
-        topk_ids,
+    topk_weights, topk_ids = torch.ops.sgl_kernel.biased_grouped_topk_cpu(
         hidden_states,
         gating_output,
         correction_bias,

@@ -7,8 +7,7 @@ import torch.nn as nn
 
 from utils import compare
 
-from sgl_kernel.common_ops import rmsnorm_cpu as rmsnorm
-from sgl_kernel.common_ops import fused_add_rmsnorm_cpu as fused_add_rmsnorm
+import sgl_kernel
 
 torch.manual_seed(1111)
 
@@ -41,7 +40,7 @@ def run_single_test(shape, dtype, device="cuda"):
 
     print("\nTEST: rmsnorm")
     out = torch.empty_like(x)
-    rmsnorm(out, x, weight, variance_epsilon)
+    out = torch.ops.sgl_kernel.rmsnorm_cpu(x, weight, variance_epsilon)
     ref_out = forward_native(x, weight, variance_epsilon)
 
     compare(out, ref_out)
@@ -53,7 +52,7 @@ def run_single_test(shape, dtype, device="cuda"):
     residual = torch.randn(shape, dtype=dtype).to(device=device)
     ref_residual = residual.clone()
 
-    fused_add_rmsnorm(x, residual, weight, variance_epsilon)
+    torch.ops.sgl_kernel.fused_add_rmsnorm_cpu(x, residual, weight, variance_epsilon)
 
     ref_x, ref_residual = forward_native(ref_x, weight, variance_epsilon, ref_residual)
 
@@ -74,7 +73,7 @@ def benchmark(M, K, niters=100000, dtype=torch.float16):
 
     t1 = time()
     for _ in range(niters):
-        fused_add_rmsnorm(x, residual, weight, variance_epsilon)
+        torch.ops.sgl_kernel.fused_add_rmsnorm_cpu(x, residual, weight, variance_epsilon)
     t2 = time()
     tt = (t2 - t1) * 1000 * 1000 / niters
 

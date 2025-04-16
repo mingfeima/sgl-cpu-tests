@@ -1,6 +1,6 @@
 import torch
 from torch.nn.functional import scaled_dot_product_attention
-from sgl_kernel.common_ops import decode_attention_cpu as decode_attention
+import sgl_kernel
 
 from time import time
 
@@ -104,7 +104,7 @@ def _test_grouped_decode_attention_once(B, H_Q, H_KV, D, D_V, device):
 
     t1 = time()
     for _ in range(niter):
-        decode_attention(
+        torch.ops.sgl_kernel.decode_attention_cpu(
             q,
             k_buffer,
             v_buffer,

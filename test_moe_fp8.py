@@ -1,8 +1,7 @@
 import torch
 import torch.nn.functional as F
 import math
-from sgl_kernel.common_ops import convert_weight_packed, fp8_scaled_mm_cpu
-from sgl_kernel.common_ops import shared_expert_cpu as shared_expert
+import sgl_kernel.cpu
 
 from utils import compare
 
@@ -81,10 +80,10 @@ def run_single_test(m, n, k, routed_scaling_factor, dtype, prepack):
     a3 = torch.matmul(a2, w2_dq.transpose(0, 1))
     a4 = a3 + fused_output * routed_scaling_factor
 
-    w1 = convert_weight_packed(w1)
-    w2 = convert_weight_packed(w2)
+    w1 = sgl_kernel.cpu.convert_weight_packed(w1)
+    w2 = sgl_kernel.cpu.convert_weight_packed(w2)
 
-    c = shared_expert(hidden_states2, w1, w2, fused_output, routed_scaling_factor, True,
+    c = sgl_kernel.cpu.shared_expert(hidden_states2, w1, w2, fused_output, routed_scaling_factor, True,
                         False, True, w1_s, w2_s, [scale_block_size_N, scale_block_size_K], None, None, True)
     compare(a4, c, True)
 

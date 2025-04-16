@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as F
-from sgl_kernel.common_ops import convert_weight_packed
-from sgl_kernel.common_ops import bmm_cpu as bmm_cpu
+import sgl_kernel
 from time import time
 
 from utils import compare
@@ -36,7 +35,7 @@ def native_bmm_fp8(matA, matB, s, matC):
 
 
 def bmm_opt(matC, matA, matB, is_vnni, scale=None):
-    bmm_cpu(matC, matA, matB, is_vnni, scale)
+    torch.ops.sgl_kernel.bmm_cpu(matC, matA, matB, is_vnni, scale)
 
 def run_single_test(B, M, N, K, chunk=False, dtype=torch.bfloat16):
 
@@ -66,7 +65,7 @@ def run_single_test(B, M, N, K, chunk=False, dtype=torch.bfloat16):
     bmm_opt(matC, matA, matB_t, False)
     compare(ref, matC)
 
-    packed_B = convert_weight_packed(matB_t)
+    packed_B = torch.ops.sgl_kernel.convert_weight_packed(matB_t)
     matC.zero_()
     assert matC.sum().item() == 0
     bmm_opt(matC, matA, packed_B, True)
@@ -107,7 +106,7 @@ def run_single_bench(B, M, N, K, chunk=False, dtype=torch.bfloat16):
     matB_t = matB.transpose_(1, 2)
     assert matB_t.is_contiguous()
 
-    packed_B = convert_weight_packed(matB_t)
+    packed_B = torch.ops.sgl_kernel.convert_weight_packed(matB_t)
     t5 = time()
     for _ in range(niters):
         bmm_opt(matC, matA, packed_B, True)
