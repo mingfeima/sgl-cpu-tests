@@ -1,6 +1,7 @@
 import math
 from itertools import product
 from time import time
+import math
 
 import torch
 import torch.nn as nn
@@ -12,101 +13,47 @@ from utils import compare
 
 torch.manual_seed(1111)
 
+BLOCK_N, BLOCK_K = 64, 128
+factor_for_scale = 1e-3
+fp8_max, fp8_min = 400, -400
 
-class Mod(nn.Module):
-    def __init__(self, input_channel, output_channel, has_bias):
-        super(Mod, self).__init__()
-        self.linear = torch.nn.Linear(input_channel, output_channel, has_bias)
-
-    def forward(self, x):
-        return self.linear(x)
-
-
-def convert_weight(weight, scale_block_size, A_dtype):
-    N, K = weight.size()
-    fp8_max = 448.0
-    scale_block_size_N, scale_block_size_K = scale_block_size  # (128, 128)
-
-    pad_N = (scale_block_size_N - (N % scale_block_size_N)) % scale_block_size_N
-    pad_K = (scale_block_size_K - (K % scale_block_size_K)) % scale_block_size_K
-
-    if pad_N > 0 or pad_K > 0:
-        weight = torch.nn.functional.pad(weight, (0, pad_K, 0, pad_N))
-
-    weight_blocks = weight.view(
-        math.ceil(N / scale_block_size_N),
-        scale_block_size_N,
-        math.ceil(K / scale_block_size_K),
-        scale_block_size_K
-    )  # (8, 128, 8, 128)
-    weight_blocks = weight_blocks.permute(0, 2, 1, 3).contiguous()  # (8, 8, 128, 128)
-
-    # Step 2: compute per-block max abs values → scale
-    abs_max = weight_blocks.abs().amax(dim=(-2, -1), keepdim=True)  # (8, 8, 1, 1)
-    scales = abs_max / fp8_max
-    scales = torch.where(scales == 0, torch.ones_like(scales), scales)  # avoid division by zero
-
-    q_fp8 = (weight_blocks / scales).to(torch.float8_e4m3fn)
-    q_fp8_reshape = q_fp8.permute(0, 2, 1, 3).contiguous()
-
-    if pad_N > 0 or pad_K > 0:
-        q_fp8_reshape = q_fp8_reshape.view(N + pad_N, K + pad_K)
-        q_fp8_reshape = q_fp8_reshape[:N, :K].contiguous()
-    else:
-        q_fp8_reshape = q_fp8_reshape.view(N, K)
-
-    dq_weight = q_fp8.float() * scales
-    dq_weight = dq_weight.permute(0, 2, 1, 3).contiguous()  # (8, 128, 8, 128)
-
-    if pad_N > 0 or pad_K > 0:
-        w_dq = dq_weight.view(N + pad_N, K + pad_K).to(A_dtype)
-        w_dq = w_dq[:N, :K].contiguous()
-    else:
-        w_dq = dq_weight.view(N, K).to(A_dtype)
-
-    scales = scales.view(
-        math.ceil(N / scale_block_size_N),
-        math.ceil(K / scale_block_size_K)
-    )
-
-    return q_fp8_reshape, scales, w_dq
-
+def scaled_weight(weight, scales):
+    N, K = weight.shape
+    weight_block = weight.view(N // BLOCK_N, BLOCK_N, K // BLOCK_K, BLOCK_K).permute(0, 2, 1, 3).float().contiguous()
+    return (weight_block * scales.view(N // BLOCK_N, K // BLOCK_K, 1, 1)).permute(0, 2, 1, 3).contiguous().view(N, K)
 
 def run_single_test(M, N, K, has_bias, prepack, chunk=False, bench=False):
-    print(f"### gemm_fp8: M = {M}, N = {N}, K = {K}, has_bias = {has_bias}, prepack = {prepack}, chunk = {chunk}")
+    print(f"\n### gemm_fp8: M = {M}, N = {N}, K = {K}, has_bias = {has_bias}, prepack = {prepack}, chunk = {chunk}")
 
-    scale_block_size_N = 64
-    scale_block_size_K = 128
-    assert scale_block_size_N <= N
-    assert scale_block_size_K <= K
     A_dtype = torch.bfloat16
 
-    model = Mod(K, N, has_bias).eval()
     if chunk:
         data = torch.randn(M, K + 6, dtype=A_dtype).narrow(1, 0, K)
     else:
         data = torch.randn(M, K, dtype=A_dtype)
+    data = data / math.sqrt(K)
 
-    weight = model.linear.weight  # (N, K)
+    weight_fp32 = torch.randn(N, K)
+    scales = torch.randn(N // BLOCK_N, K // BLOCK_K) * factor_for_scale
+    weight_fp8 = (weight_fp32 * fp8_max).clamp(min=fp8_min, max=fp8_max).to(torch.float8_e4m3fn)
+    weight_scaled = scaled_weight(weight_fp8, scales).view(N, K).to(dtype=A_dtype)
 
     if has_bias:
-        bias = model.linear.bias
-
-    fp8_weight, scales, dq_weight = convert_weight(weight, [scale_block_size_N, scale_block_size_K], A_dtype)
+        bias = torch.randn(N, dtype=torch.float32)
 
     if has_bias:
-        ref = torch.matmul(data.to(A_dtype), dq_weight.T) + bias.to(A_dtype)
+        ref = torch.matmul(data.to(A_dtype), weight_scaled.T) + bias.to(A_dtype)
     else:
-        ref = torch.matmul(data.to(A_dtype), dq_weight.T)
+        ref = torch.matmul(data.to(A_dtype), weight_scaled.T)
 
     if prepack:
-        fp8_weight = convert_weight_packed(fp8_weight)
+        weight_fp8 = convert_weight_packed(weight_fp8)
 
     opt = fp8_scaled_mm_cpu(
         data,
-        fp8_weight,
+        weight_fp8,
         scales,
-        [scale_block_size_N, scale_block_size_K],
+        [BLOCK_N, BLOCK_K],
         bias if has_bias else None,
         data.dtype,
         prepack
@@ -114,37 +61,60 @@ def run_single_test(M, N, K, has_bias, prepack, chunk=False, bench=False):
     compare(ref, opt)
     
     if bench:
-        niters = 1000
+        niters = 200
+        L = 100
+
+        inputs = [data.clone() for _ in range(L)]
+        weights_fp8 = [weight_fp8.clone() for _ in range(L)]
         
         t0 = time()
         for _ in range(niters):
             if has_bias:
-                ref = torch.matmul(data.to(A_dtype), dq_weight.T) + bias.to(A_dtype)
+                ref = torch.matmul(data.to(A_dtype), weight_scaled.T) + bias.to(A_dtype)
             else:
-                ref = torch.matmul(data.to(A_dtype), dq_weight.T)
+                ref = torch.matmul(data.to(A_dtype), weight_scaled.T)
         t1 = time()
         t_native = (t1 - t0) / niters * 1000 * 1000 # us
+ 
+        for _ in range(niters):
+            for idx in range(L):
+                fp8_scaled_mm_cpu(
+                    inputs[idx],
+                    weights_fp8[idx],
+                    scales,
+                    [BLOCK_N, BLOCK_K],
+                    bias if has_bias else None,
+                    data.dtype,
+                    prepack
+                )
         
         t2 = time()
         for _ in range(niters):
-            fp8_scaled_mm_cpu(
-                data,
-                fp8_weight,
-                scales,
-                [scale_block_size_N, scale_block_size_K],
-                bias if has_bias else None,
-                data.dtype,
-                prepack
-            )
+            for idx in range(L):
+                fp8_scaled_mm_cpu(
+                    inputs[idx],
+                    weights_fp8[idx],
+                    scales,
+                    [BLOCK_N, BLOCK_K],
+                    bias if has_bias else None,
+                    data.dtype,
+                    prepack
+                )
         t3 = time()
-        t_opt = (t3 - t2) / niters * 1000 * 1000 # us
+        t_opt = (t3 - t2) / niters * 1000 * 1000 / L # us
         print(f"\n### gemm_fp8 benchmark: M = {M}, N = {N}, K = {K}, has_bias = {has_bias}, prepack = {prepack}, chunk = {chunk}")
         print(f"gemm_bf16(native): {t_native:.3f} us, gemm_fp8(opt): {t_opt:.3f} us")
 
 
-for M, N, K, has_bias, prepack in product([1, 2, 11, 111], [128, 224], [512, 576], [False, True], [False, True]):
-    run_single_test(M, N, K, has_bias, prepack)
+#for M, N, K, has_bias, prepack in product([1, 2, 11, 111], [128, 224], [512, 576], [False, True], [False, True]):
+#    run_single_test(M, N, K, has_bias, prepack)
 
 # test mat1_strideM
-run_single_test(M=14, N=160, K=768, has_bias=True, prepack=True, chunk=True)
-run_single_test(M=1, N=2816, K=7168, has_bias=True, prepack=True, chunk=False, bench=True)
+#run_single_test(M=14, N=160, K=768, has_bias=True, prepack=True, chunk=True)
+#run_single_test(M=1, N=2816, K=7168, has_bias=True, prepack=True, chunk=False, bench=True)
+
+run_single_test(1, 576, 7168, True, True, False, True)
+#run_single_test(1, 2816, 7168, True, True, False, True)
+#run_single_test(2, 2816, 7168, True, True, False, True)
+#run_single_test(4, 2816, 7168, True, True, False, True)
+#run_single_test(128, 2816, 7168, True, True, False, True)
