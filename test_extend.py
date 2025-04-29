@@ -1,6 +1,6 @@
 import torch
 from torch.nn.functional import scaled_dot_product_attention
-from sgl_kernel.ops._kernels import extend_attention_cpu as extend_attention
+from sgl_kernel.common_ops import extend_attention_cpu as extend_attention
 from utils import compare
 
 torch.manual_seed(1111)
@@ -54,8 +54,8 @@ def _run_sdpa_forward_extend(
         per_req_key = k_cache[per_req_tokens].movedim(0, query.dim() - 2)
         per_req_value = v_cache[per_req_tokens].movedim(0, query.dim() - 2)
 
-        print("### per_req_key: ", per_req_key.size())
-        print("per_req_value: ", per_req_value.size())
+        #print("### per_req_key: ", per_req_key.size())
+        #print("per_req_value: ", per_req_value.size())
 
         per_req_out_redudant = (
             scaled_dot_product_attention(
@@ -83,10 +83,10 @@ def test_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False):
     b_seq_len_extend = torch.randint(1, N_CTX // 2, (B,), dtype=torch.int32)
     b_seq_len = (b_seq_len_prefix + b_seq_len_extend)
     max_len_in_batch = torch.max(b_seq_len, 0)[0].item()
-    print("b_seq_len_prefix: ", b_seq_len_prefix)
-    print("b_seq_len_extend: ", b_seq_len_extend)
-    print("b_seq_len       : ", b_seq_len)
-    print("max_len_in_batch: ", max_len_in_batch)
+    #print("b_seq_len_prefix: ", b_seq_len_prefix)
+    #print("b_seq_len_extend: ", b_seq_len_extend)
+    #print("b_seq_len       : ", b_seq_len)
+    #print("max_len_in_batch: ", max_len_in_batch)
 
     b_req_idx = torch.arange(B, dtype=torch.int32)
     req_to_tokens = torch.empty((B, max_len_in_batch), dtype=torch.int32)
@@ -94,8 +94,8 @@ def test_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False):
     b_start_loc[1:] = torch.cumsum(b_seq_len[:-1], 0)
     b_start_loc_extend = torch.zeros((B,), dtype=torch.int32)
     b_start_loc_extend[1:] = torch.cumsum(b_seq_len_extend[:-1], 0)
-    print("b_start_loc     : ", b_start_loc)
-    print("b_start_loc_extend: ", b_start_loc_extend)
+    #print("b_start_loc     : ", b_start_loc)
+    #print("b_start_loc_extend: ", b_start_loc_extend)
 
     for i in range(B):
         req_to_tokens[i, : b_seq_len[i]] = torch.arange(
@@ -118,7 +118,6 @@ def test_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False):
     #     k_buffer[i].fill_(i)
     #     v_buffer[i].fill_(i)
 
-
     for i in range(B):
         extend_start_in_buffer = b_start_loc[i] + b_seq_len_prefix[i]
         extend_end_in_buffer = b_start_loc[i] + b_seq_len[i]
@@ -135,8 +134,8 @@ def test_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False):
     b_start_loc_extend[1:] = torch.cumsum(b_seq_len_extend[:-1], 0)
     max_len_extend = torch.max(b_seq_len_extend, 0)[0].item()
 
-    print("b_start_loc_extend: ", b_start_loc_extend)
-    print("max_len_extend :", max_len_extend)
+    #print("b_start_loc_extend: ", b_start_loc_extend)
+    #print("max_len_extend :", max_len_extend)
 
     sm_scale = 1.0 / (D**0.5)
     logit_cap = 0.0

@@ -65,7 +65,7 @@ def run_single_test(m, n, k, routed_scaling_factor, dtype, prepack=False):
 
     # bfloat16
     ref = torch_naive_moe(hidden_states.float(), w1.float(), w2.float(), fused_output.float(), routed_scaling_factor).to(dtype=dtype)
-    res = shared_expert(hidden_states, w1, w2, fused_output, routed_scaling_factor, True, False, None, None, None, None, False)
+    res = shared_expert(hidden_states, w1, w2, fused_output, routed_scaling_factor, True, False, False, None, None, None, None, None, False)
 
     #print(ref, ref.size())
     #print(res, res.size())
@@ -75,7 +75,7 @@ def run_single_test(m, n, k, routed_scaling_factor, dtype, prepack=False):
     w1_q, w1_s = per_token_quant_int8(w1)
     w2_q, w2_s = per_token_quant_int8(w2)
     ref2 = torch_w8a8_per_column_moe(hidden_states2.float(), w1_q, w2_q, w1_s, w2_s, fused_output.float(), routed_scaling_factor).to(dtype=dtype)
-    res2 = shared_expert(hidden_states2, w1_q, w2_q, fused_output, routed_scaling_factor, True, True, w1_s, w2_s, None, None, False)
+    res2 = shared_expert(hidden_states2, w1_q, w2_q, fused_output, routed_scaling_factor, True, True, False, w1_s, w2_s, None, None, None, False)
 
     #print(ref2, ref2.size())
     #print(res2, res2.size())

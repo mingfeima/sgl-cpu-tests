@@ -151,7 +151,7 @@ def test_qkv_projection(B, hidden_size, dtype=torch.bfloat16):
     # bfloat16
     q_input2, k_input2, v_input2 = qkv_proj_with_rope(hidden_states, qa_packed,
         qb_packed, kva_packed, wkc_packed, norm_weight1, norm_weight2, pos, cos_sin_cache, eps,
-        False, None, None, None, True)
+        False, False, None, None, None, True, None)
   
     print("Compare Ref and C++ on bfloat16:")
     compare(q_input.narrow(2, 512, 64), q_input2.narrow(2, 512, 64))
@@ -180,7 +180,7 @@ def test_qkv_projection(B, hidden_size, dtype=torch.bfloat16):
     print("\nCompare Ref int8 and C++ int8:")
     q_input4, k_input4, v_input4 = qkv_proj_with_rope(hidden_states, w1_q_packed,
         w2_q_packed, w3_q_packed, wkc_packed, norm_weight1, norm_weight2, pos, cos_sin_cache, eps,
-        True, w1_s, w2_s, w3_s, True)
+        True, False, w1_s, w2_s, w3_s, True, None)
 
     compare(q_input3.narrow(2, 512, 64), q_input4.narrow(2, 512, 64))
     compare(q_input3, q_input4)

@@ -123,7 +123,7 @@ def run_single_test(M, N, K, E, topk, dtype, prepack):
     inplace = True
     packed_w1 = convert_weight_packed(w1) if prepack else w1
     packed_w2 = convert_weight_packed(w2) if prepack else w2
-    out = fused_experts(a, packed_w1, packed_w2, topk_weight, topk_ids.to(torch.int32), inplace, True, w1_s, w2_s, None, None, prepack)
+    out = fused_experts(a, packed_w1, packed_w2, topk_weight, topk_ids.to(torch.int32), inplace, True, False, w1_s, w2_s, None, None, None, prepack)
 
     print("### using default atol=rtol=0.01 for torch.bfloat16: (may fail for large input shape")
     compare(ref_out, out)
