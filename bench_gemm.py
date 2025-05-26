@@ -58,7 +58,7 @@ def run_single_test(M, N, K, has_bias):
         bias = torch.randn(N, dtype=torch.float32)
 
     niters = 200
-    L = 300
+    L = 2
 
     inputs = [data.clone() for _ in range(L)]
     weight_bf16 = torch.randn(N, K, dtype=torch.bfloat16)
@@ -113,8 +113,17 @@ def run_single_test(M, N, K, has_bias):
     tt3 = (t7 - t6) / niters * 1000 * 1000 / L # us
     
     print(f"\n### gemm_fp8 benchmark: M = {M}, N = {N}, K = {K}, has_bias = {has_bias}")
-    print(f"gemm_bf16(native): {tt0:.3f} us, gemm_fp8(opt): {tt1:.3f} us, gemm_int8(opt): {tt2:.3f} us, gemm_bf16(opt): {tt3:.3f} us")
+    if M > 100:
+        # use ms
+        tt0 = tt0 / 1000
+        tt1 = tt1 / 1000
+        tt2 = tt2 / 1000
+        tt3 = tt3 / 1000
+        print(f"gemm_bf16(native): {tt0:.3f} ms, gemm_fp8(opt): {tt1:.3f} ms, gemm_int8(opt): {tt2:.3f} ms, gemm_bf16(opt): {tt3:.3f} ms")
+    else:
+        print(f"gemm_bf16(native): {tt0:.3f} us, gemm_fp8(opt): {tt1:.3f} us, gemm_int8(opt): {tt2:.3f} us, gemm_bf16(opt): {tt3:.3f} us")
 
 
-run_single_test(4, 2816, 7168, False)
-#run_single_test(128, 2816, 7168, True)
+#run_single_test(4, 2816, 7168, False)
+run_single_test(4096, 7168, 2816, False)
+run_single_test(4096, 1536, 7168, False)
