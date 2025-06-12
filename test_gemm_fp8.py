@@ -116,5 +116,6 @@ def run_single_test(M, N, K, has_bias, prepack, chunk=False, bench=False):
 #run_single_test(1, 576, 7168, True, True, False, True)
 run_single_test(1, 2816, 7168, True, True, False, True)
 run_single_test(2, 2816, 7168, True, True, False, True)
-run_single_test(4, 2816, 7168, True, True, False, True)
+run_single_test(4, 2816, 7168, True, True, False, False)
+run_single_test(1024, 2816, 7168, True, True, False, False)
 #run_single_test(128, 2816, 7168, True, True, False, True)

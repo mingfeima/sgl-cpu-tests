@@ -29,7 +29,8 @@ def run_single_test(M, N, K, has_bias):
 
 for has_bias in [True]:
     run_single_test(1, 32 * 13, 32 * 16, has_bias)
-    run_single_test(101, 32 * 13, 32 * 16, has_bias)
+    run_single_test(11, 32 * 13, 32 * 16, has_bias)
+    run_single_test(1024, 32 * 13, 32 * 16, has_bias)
 
 
 def test_weight_prepack(oc, ic):
@@ -70,4 +71,4 @@ def run_single_bench(M, N, K):
 
     print(f"\n### bench: gemm: M = {M}, N = {N}, K = {K}, time = {tt:.3f} us")
 
-run_single_bench(1, 256, 7168)
+#run_single_bench(1, 256, 7168)
