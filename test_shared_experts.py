@@ -84,3 +84,4 @@ def run_single_test(m, n, k, routed_scaling_factor, dtype, prepack=False):
 
 run_single_test(2, 32, 32, 16, torch.bfloat16)
 run_single_test(121, 32*4, 32*2, 16, torch.bfloat16)
+run_single_test(1211, 32*4, 32*2, 16, torch.bfloat16)

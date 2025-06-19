@@ -112,10 +112,10 @@ def test_fused_expert(M, N, K, E, topk, dtype, prepack=False):
     w2 = convert_weight_packed(w2)
 
     ref_out = native_fused_moe(a, w1_scaled, w2_scaled, topk_weight, topk_ids, topk)
-    out = fused_experts(a, w1, w2, topk_weight, topk_ids.to(torch.int32), False, False, True, w1s, w2s, [BLOCK_N, BLOCK_K], None, None, True)
+    out = fused_experts(a, w1, w2, topk_weight, topk_ids.to(torch.int32), False, False, True, False, w1s, w2s, [BLOCK_N, BLOCK_K], None, None, None, None, True)
 
     compare(ref_out.bfloat16(), out)
 
 test_fused_expert(2, 128, 128, 8, 4, torch.bfloat16)
 test_fused_expert(121, 512, 1024, 8, 2, torch.bfloat16)
-
+test_fused_expert(1212, 512, 1024, 8, 2, torch.bfloat16)
