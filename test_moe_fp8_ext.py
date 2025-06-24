@@ -62,6 +62,7 @@ def test_shared_expert(M, N, K, routed_scaling_factor, dtype, prepack=False):
 
 test_shared_expert(2, 256, 1024, 16, torch.bfloat16)
 test_shared_expert(12, 128, 256, 16, torch.bfloat16)
+test_shared_expert(1212, 128, 256, 16, torch.bfloat16)
 
 
 def native_fused_moe(a, w1, w2, topk_weight, topk_ids, topk):
