@@ -1,8 +1,9 @@
 import torch
-from sgl_kernel.common_ops import fused_experts_cpu as fused_experts
-from sgl_kernel.common_ops import convert_weight_packed
-
+import sgl_kernel
 from time import time
+
+fused_experts = torch.ops.sgl_kernel.fused_experts_cpu
+convert_weight_packed = torch.ops.sgl_kernel.convert_weight_packed
 
 torch.manual_seed(1111)
 
@@ -70,14 +71,14 @@ def run_single_test(M, N, K, E, topk, dtype=torch.bfloat16):
                 inplace,
                 False,
                 False,
-                use_int4_w4a16,
+                #use_int4_w4a16,
                 None,
                 None,
                 None,
                 None,
                 None,
-                None,
-                None,
+                #None,
+                #None,
                 prepack)
     t2 = time()
     tt0 = (t2 - t1) / niters * 1000 * 1000 / L # us
@@ -94,14 +95,14 @@ def run_single_test(M, N, K, E, topk, dtype=torch.bfloat16):
                 inplace,
                 True,
                 False,
-                use_int4_w4a16,
+                #use_int4_w4a16,
                 w1_s,
                 w2_s,
                 None,
                 None,
                 None,
-                None,
-                None,
+                #None,
+                #None,
                 prepack)
     t4 = time()
     tt1 = (t4 - t3) / niters * 1000 * 1000 / L # us
@@ -118,19 +119,19 @@ def run_single_test(M, N, K, E, topk, dtype=torch.bfloat16):
                 inplace,
                 False,
                 True,
-                use_int4_w4a16,
+                #use_int4_w4a16,
                 w1_ss,
                 w2_ss,
                 [BLOCK_N, BLOCK_K],
                 None,
                 None,
-                None,
-                None,
+                #None,
+                #None,
                 prepack)
     t6 = time()
     tt2 = (t6 - t5) / niters * 1000 * 1000 / L # us
 
-    if M > 100:
+    if M > 100 or True:
         # convert to ms
         tt0 = tt0 / 1000
         tt1 = tt1 / 1000
@@ -139,6 +140,6 @@ def run_single_test(M, N, K, E, topk, dtype=torch.bfloat16):
     else:
         print(f"### fused_experts: M = {M}, N = {N}, K = {K}, E = {E}, TopK = {topk}: bfloat16: {tt0:.3f} us; int8: {tt1:.3f} us; fp8: {tt2:.3f} us")
 
-
-run_single_test(4, 352, 7168, 256, 8)
-run_single_test(3929, 352, 7168, 256, 8)
+# TODO: test 352
+run_single_test(4, 384, 7168, 256, 8)
+run_single_test(3929, 384, 7168, 256, 8)

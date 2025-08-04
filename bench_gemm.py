@@ -5,12 +5,16 @@ import math
 
 import torch
 import torch.nn as nn
-
-from sgl_kernel.common_ops import convert_weight_packed, fp8_scaled_mm_cpu
-from sgl_kernel.common_ops import int8_scaled_mm_with_quant, convert_weight_packed, weight_packed_linear
+import sgl_kernel
 from time import time
 
 from utils import compare
+
+
+convert_weight_packed = torch.ops.sgl_kernel.convert_weight_packed
+fp8_scaled_mm_cpu = torch.ops.sgl_kernel.fp8_scaled_mm_cpu
+int8_scaled_mm_with_quant = torch.ops.sgl_kernel.int8_scaled_mm_with_quant
+weight_packed_linear = torch.ops.sgl_kernel.weight_packed_linear
 
 torch.manual_seed(1111)
 
