@@ -15,22 +15,13 @@ convert_weight_packed = torch.ops.sgl_kernel.convert_weight_packed
 fp8_scaled_mm_cpu = torch.ops.sgl_kernel.fp8_scaled_mm_cpu
 int8_scaled_mm_with_quant = torch.ops.sgl_kernel.int8_scaled_mm_with_quant
 weight_packed_linear = torch.ops.sgl_kernel.weight_packed_linear
+mxfp4_scaled_mm = torch.ops.sgl_kernel.mxfp4_scaled_mm_cpu
 
 torch.manual_seed(1111)
 
 BLOCK_N, BLOCK_K = 128, 128
 factor_for_scale = 1e-3
 fp8_max, fp8_min = 400, -400
-
-def per_token_quant_int8(x):
-    x = x.float()
-    absmax = x.abs().max(dim=-1).values
-    absmax = absmax.clamp_min(1e-10).unsqueeze(-1)
-    scale_x = absmax / 127
-    x_q = x.mul(127 / absmax)
-    x_q = torch.round(x_q).to(torch.int8)
-
-    return x_q, scale_x
 
 def scaled_weight(weight, scales):
     N, K = weight.shape
@@ -58,10 +49,14 @@ def run_single_test(M, N, K, has_bias):
     Bs = torch.rand(N) * factor_for_scale
     weight_int8 = convert_weight_packed(Bq)
 
+    # mxfp4 weights and scales
+    weight_mxfp4 = torch.randint(0, 256, (N, K // 2), dtype=torch.uint8)
+    scale_mxfp4 = torch.randint(125, 127, (N, K // 32), dtype=torch.uint8)
+
     if has_bias:
         bias = torch.randn(N, dtype=torch.float32)
 
-    niters = 200
+    niters = 200 if M > 100 else 20000
     L = 2
 
     inputs = [data.clone() for _ in range(L)]
@@ -69,15 +64,19 @@ def run_single_test(M, N, K, has_bias):
     weights_bf16 = [weight_bf16.clone() for _ in range(L)]
     weights_fp8 = [weight_fp8.clone() for _ in range(L)]
     weights_int8 = [weight_int8.clone() for _ in range(L)]
-        
+    weights_mxfp4 = [weight_mxfp4.clone() for _ in range(L)]
+
     t0 = time()
+    '''
     for _ in range(niters):
         for idx in range(L):
             ref = torch.matmul(inputs[idx], weights_bf16[idx].T)
+    '''
     t1 = time()
     tt0 = (t1 - t0) / niters * 1000 * 1000 / L # us
 
     t2 = time()
+    '''
     for _ in range(niters):
         for idx in range(L):
             fp8_scaled_mm_cpu(
@@ -89,10 +88,12 @@ def run_single_test(M, N, K, has_bias):
                 data.dtype,
                 True
             )
+    '''
     t3 = time()
     tt1 = (t3 - t2) / niters * 1000 * 1000 / L # us
 
     t4 = time()
+    '''
     for _ in range(niters):
         for idx in range(L):
             int8_scaled_mm_with_quant(
@@ -102,10 +103,12 @@ def run_single_test(M, N, K, has_bias):
                 bias if has_bias else None,
                 A_dtype,
                 True);
+    '''
     t5 = time()
     tt2 = (t5 - t4) / niters * 1000 * 1000 / L # us
 
     t6 = time()
+    '''
     for _ in range(niters):
         for idx in range(L):
             weight_packed_linear(
@@ -113,8 +116,21 @@ def run_single_test(M, N, K, has_bias):
                 weights_bf16[idx],
                 bias if has_bias else None,
                 True)
+    '''
     t7 = time()
     tt3 = (t7 - t6) / niters * 1000 * 1000 / L # us
+
+    t8 = time()
+    for _ in range(niters):
+        for idx in range(L):
+            mxfp4_scaled_mm(
+                inputs[idx],
+                weights_mxfp4[idx],
+                scale_mxfp4,
+                bias if has_bias else None,
+                True)
+    t9 = time()
+    tt4 = (t9 - t8) / niters * 1000 * 1000 / L # us
     
     print(f"\n### gemm_fp8 benchmark: M = {M}, N = {N}, K = {K}, has_bias = {has_bias}")
     if M > 100:
@@ -123,11 +139,12 @@ def run_single_test(M, N, K, has_bias):
         tt1 = tt1 / 1000
         tt2 = tt2 / 1000
         tt3 = tt3 / 1000
-        print(f"gemm_bf16(native): {tt0:.3f} ms, gemm_fp8(opt): {tt1:.3f} ms, gemm_int8(opt): {tt2:.3f} ms, gemm_bf16(opt): {tt3:.3f} ms")
+        tt4 = tt4 / 1000
+        print(f"gemm_bf16(native): {tt0:.3f} ms, gemm_fp8(opt): {tt1:.3f} ms, gemm_int8(opt): {tt2:.3f} ms, gemm_mxfp4(opt): {tt4:.3f} ms, gemm_bf16(opt): {tt3:.3f} ms")
     else:
-        print(f"gemm_bf16(native): {tt0:.3f} us, gemm_fp8(opt): {tt1:.3f} us, gemm_int8(opt): {tt2:.3f} us, gemm_bf16(opt): {tt3:.3f} us")
+        print(f"gemm_bf16(native): {tt0:.3f} us, gemm_fp8(opt): {tt1:.3f} us, gemm_int8(opt): {tt2:.3f} us, gemm_mxfp4(opt): {tt4:.3f} us, gemm_bf16(opt): {tt3:.3f} us")
 
 
-#run_single_test(4, 2816, 7168, False)
+run_single_test(4, 2816, 7168, False)
 #run_single_test(4096, 7168, 2816, False)
-run_single_test(1024, 14336, 4096, False)
+#run_single_test(1024, 14336, 4096, False)
