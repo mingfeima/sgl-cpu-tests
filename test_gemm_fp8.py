@@ -6,9 +6,11 @@ import math
 import torch
 import torch.nn as nn
 
-from sgl_kernel.common_ops import convert_weight_packed, fp8_scaled_mm_cpu
-from time import time
+import sgl_kernel
+convert_weight_packed = torch.ops.sgl_kernel.convert_weight_packed
+fp8_scaled_mm_cpu = torch.ops.sgl_kernel.fp8_scaled_mm_cpu
 
+from time import time
 from utils import compare
 
 torch.manual_seed(1111)

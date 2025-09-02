@@ -1,8 +1,9 @@
 import torch
-from sgl_kernel.common_ops import per_token_quant_int8_cpu
-from sgl_kernel.common_ops import int8_scaled_mm_cpu
-from sgl_kernel.common_ops import int8_scaled_mm_with_quant
-from sgl_kernel.common_ops import convert_weight_packed
+import sgl_kernel
+per_token_quant_int8_cpu = torch.ops.sgl_kernel.per_token_quant_int8_cpu
+int8_scaled_mm_cpu = torch.ops.sgl_kernel.int8_scaled_mm_cpu
+int8_scaled_mm_with_quant = torch.ops.sgl_kernel.int8_scaled_mm_with_quant
+convert_weight_packed = torch.ops.sgl_kernel.convert_weight_packed
 
 from utils import compare
 
