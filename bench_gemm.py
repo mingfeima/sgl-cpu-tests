@@ -12,6 +12,7 @@ from utils import compare
 
 
 convert_weight_packed = torch.ops.sgl_kernel.convert_weight_packed
+convert_scale_packed = torch.ops.sgl_kernel.convert_scale_packed
 fp8_scaled_mm_cpu = torch.ops.sgl_kernel.fp8_scaled_mm_cpu
 int8_scaled_mm_with_quant = torch.ops.sgl_kernel.int8_scaled_mm_with_quant
 weight_packed_linear = torch.ops.sgl_kernel.weight_packed_linear
@@ -56,8 +57,8 @@ def run_single_test(M, N, K, has_bias):
     if has_bias:
         bias = torch.randn(N, dtype=torch.float32)
 
-    niters = 200 if M > 100 else 20000
-    L = 2
+    niters = 20 if M > 100 else 2000
+    L = 20
 
     inputs = [data.clone() for _ in range(L)]
     weight_bf16 = torch.randn(N, K, dtype=torch.bfloat16)
@@ -65,18 +66,16 @@ def run_single_test(M, N, K, has_bias):
     weights_fp8 = [weight_fp8.clone() for _ in range(L)]
     weights_int8 = [weight_int8.clone() for _ in range(L)]
     weights_mxfp4 = [weight_mxfp4.clone() for _ in range(L)]
+    scales_mxfp4 = [scale_mxfp4.clone() for _ in range(L)]
 
     t0 = time()
-    '''
     for _ in range(niters):
         for idx in range(L):
             ref = torch.matmul(inputs[idx], weights_bf16[idx].T)
-    '''
     t1 = time()
     tt0 = (t1 - t0) / niters * 1000 * 1000 / L # us
 
     t2 = time()
-    '''
     for _ in range(niters):
         for idx in range(L):
             fp8_scaled_mm_cpu(
@@ -88,12 +87,10 @@ def run_single_test(M, N, K, has_bias):
                 data.dtype,
                 True
             )
-    '''
     t3 = time()
     tt1 = (t3 - t2) / niters * 1000 * 1000 / L # us
 
     t4 = time()
-    '''
     for _ in range(niters):
         for idx in range(L):
             int8_scaled_mm_with_quant(
@@ -103,12 +100,10 @@ def run_single_test(M, N, K, has_bias):
                 bias if has_bias else None,
                 A_dtype,
                 True);
-    '''
     t5 = time()
     tt2 = (t5 - t4) / niters * 1000 * 1000 / L # us
 
     t6 = time()
-    '''
     for _ in range(niters):
         for idx in range(L):
             weight_packed_linear(
@@ -116,7 +111,6 @@ def run_single_test(M, N, K, has_bias):
                 weights_bf16[idx],
                 bias if has_bias else None,
                 True)
-    '''
     t7 = time()
     tt3 = (t7 - t6) / niters * 1000 * 1000 / L # us
 
@@ -126,7 +120,7 @@ def run_single_test(M, N, K, has_bias):
             mxfp4_scaled_mm(
                 inputs[idx],
                 weights_mxfp4[idx],
-                scale_mxfp4,
+                scales_mxfp4[idx],
                 bias if has_bias else None,
                 True)
     t9 = time()
