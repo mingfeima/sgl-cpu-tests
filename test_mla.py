@@ -1,6 +1,8 @@
 import torch
 from torch.nn.functional import scaled_dot_product_attention
-from sgl_kernel.common_ops import decode_attention_cpu as decode_attention
+
+import sgl_kernel
+decode_attention = torch.ops.sgl_kernel.decode_attention_cpu
 
 from time import time
 from utils import compare
@@ -65,6 +67,7 @@ def _run_sdpa_forward_decode(
 
 def _test_grouped_decode_attention_once(B, H_Q, H_KV, D, D_V, seq_len):
     dtype = torch.bfloat16
+    itype = torch.int64
 
     total_tokens = B * seq_len
     sm_scale = 1.0 / (D**0.5)
@@ -82,7 +85,7 @@ def _test_grouped_decode_attention_once(B, H_Q, H_KV, D, D_V, seq_len):
     key = torch.randn(B, H_KV, D, dtype=dtype)
     value = key.narrow(2, 0, D_V)
     # make sure no duplicates in loc
-    loc = torch.randperm(total_tokens)[:B].to(torch.int32)
+    loc = torch.randperm(total_tokens)[:B].to(itype)
 
     k_buffer2 = k_buffer.clone()
     v_buffer2 = k_buffer2.narrow(2, 0, D_V)
@@ -97,7 +100,7 @@ def _test_grouped_decode_attention_once(B, H_Q, H_KV, D, D_V, seq_len):
     o = torch.zeros(B, H_Q, D_V, dtype=dtype)
     o_grouped = torch.zeros(B, H_Q, D_V, dtype=dtype)
 
-    req_to_token = torch.arange(total_tokens).reshape(B, seq_len).to(torch.int32)
+    req_to_token = torch.arange(total_tokens).reshape(B, seq_len).to(itype)
     b_req_idx = torch.arange(B).to(torch.int64)
     b_seq_len = torch.full((B,), seq_len).to(torch.int64)
 

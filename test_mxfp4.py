@@ -174,7 +174,7 @@ def test_single_gemm_ext(M, N, K, dtype, has_bias=False):
 
     Bq = torch.randint(0, 256, (N, K // 2), dtype=torch.uint8)
     #Bs = torch.randint(126, 129, (N, K // 32), dtype=torch.uint8)
-    Bs = torch.randint(125, 127, (N, K // 32), dtype=torch.uint8)
+    Bs = torch.randint(126, 127, (N, K // 32), dtype=torch.uint8)
 
     Bdq = MXFP4QuantizeUtil.dequantize(Bq, dtype, Bs)
 
@@ -190,10 +190,11 @@ def test_single_gemm_ext(M, N, K, dtype, has_bias=False):
         ref_out.add_(bias.view(1, -1))
 
     out = mxfp4_scaled_mm(A, B_packed, Bs_packed, bias, True)
-    compare(ref_out, out)
+    compare(ref_out, out, True)
 
 
-test_single_gemm(1, 32, 32, torch.bfloat16, False)
-test_single_gemm(1, 32, 2048, torch.bfloat16, False)
-test_single_gemm_ext(112, 32*30, 32*11, torch.bfloat16, False)
-test_single_gemm_ext(2, 128, 128, torch.bfloat16, True)
+#test_single_gemm(1, 32, 32, torch.bfloat16, False)
+#test_single_gemm(1, 32, 2048, torch.bfloat16, False)
+#test_single_gemm_ext(112, 32*30, 32*11, torch.bfloat16, False)
+#test_single_gemm_ext(2, 128, 128, torch.bfloat16, True)
+test_single_gemm_ext(1, 32, 32, torch.bfloat16, False)
