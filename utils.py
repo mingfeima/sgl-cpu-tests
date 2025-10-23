@@ -23,4 +23,3 @@ def compare(a: torch.Tensor, b: torch.Tensor, debug=False):
         print(max_index, a.flatten()[max_index], b.flatten()[max_index])
 
     print("Comparing: ", res, " max_diff = {:.5f}, asum = {:.3f}, bsum = {:.3f}".format(max_diff, a_sum, b_sum))
-
