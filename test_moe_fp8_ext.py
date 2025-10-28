@@ -1,9 +1,11 @@
 import torch
 import torch.nn.functional as F
 import math
-from sgl_kernel.common_ops import convert_weight_packed, fp8_scaled_mm_cpu
-from sgl_kernel.common_ops import shared_expert_cpu as shared_expert
-from sgl_kernel.common_ops import fused_experts_cpu as fused_experts
+import sgl_kernel
+convert_weight_packed = torch.ops.sgl_kernel.convert_weight_packed
+fp8_scaled_mm = torch.ops.sgl_kernel.fp8_scaled_mm_cpu
+shared_expert = torch.ops.sgl_kernel.shared_expert_cpu
+fused_experts = torch.ops.sgl_kernel.fused_experts_cpu
 
 from utils import compare
 
@@ -113,7 +115,7 @@ def test_fused_expert(M, N, K, E, topk, dtype, prepack=False):
     w2 = convert_weight_packed(w2)
 
     ref_out = native_fused_moe(a, w1_scaled, w2_scaled, topk_weight, topk_ids, topk)
-    out = fused_experts(a, w1, w2, topk_weight, topk_ids.to(torch.int32), False, False, True, False, w1s, w2s, [BLOCK_N, BLOCK_K], None, None, None, None, True)
+    out = fused_experts(a, w1, w2, topk_weight, topk_ids.to(torch.int32), False, False,True, w1s, w2s, [BLOCK_N, BLOCK_K], None, None, True)
 
     compare(ref_out.bfloat16(), out)
 

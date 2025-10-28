@@ -75,7 +75,7 @@ def run_single_test(M, N, K, E, topk, dtype=torch.bfloat16):
     w1_ss = torch.randn(E, 2 * N // BLOCK_N, K // BLOCK_K)
     w2_ss = torch.randn(E, K // BLOCK_N, N // BLOCK_K)
 
-    niters = 1000
+    niters = 2000
     L = 20 if actual_M < 10 else 2
 
     inputs = [input.clone() for _ in range(L)]
@@ -170,4 +170,4 @@ def run_single_test(M, N, K, E, topk, dtype=torch.bfloat16):
         print(f"### fused_experts: M = {M}, N = {N}, K = {K}, E = {E}, TopK = {topk}: bfloat16: {tt0:.3f} us; int8: {tt1:.3f} us; fp8: {tt2:.3f} us")
 
 # TODO: test 352
-run_single_test(200, 256, 4096, num_experts_offload_cpu, num_topk)
+run_single_test(64, 256, 4096, num_experts_offload_cpu, num_topk)

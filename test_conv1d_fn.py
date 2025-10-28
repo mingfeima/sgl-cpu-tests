@@ -77,18 +77,9 @@ def test_causal_conv1d(batch, dim, seqlen, width, has_bias=False, has_initial_st
         initial_states = None
         has_initial_state_tensor = None
 
-    torch.set_printoptions(precision=4, sci_mode=False, linewidth=150)
-    #x.fill_(1)
-    #weight.fill_(1)
-    #for i in range(width):
-    #    weight[:,i].fill_(i)
     packed_weight = causal_conv1d_weight_pack(weight) if prepack else weight
 
-    # transpose
     x = x.transpose_(-1, -2)
-    #print("@@@ x: ", x.transpose(-1, -2), x.size(), x.stride())
-    #print("@@@ weight: ", weight.transpose(-1, -2), weight.size(), weight.stride())
-    #print("@@@ packed_weight: ", packed_weight.view(width, dim))
 
     out_ref, final_states_ref = causal_conv1d_ref(
         x,
@@ -128,44 +119,59 @@ test_causal_conv1d(1, 8192, 1024, 4, has_bias=False)
 test_causal_conv1d(1, 96, 36, 4, has_bias=False)
 test_causal_conv1d(2, 64, 36, 4, has_bias=True)
 test_causal_conv1d(1, 96, 36, 4, has_bias=True, has_initial_state=True)
+test_causal_conv1d(2, 96, 2, 4, has_bias=True, has_initial_state=True)
 
 
 PAD_SLOT_ID = -1
 
-def test_causal_conv1d_varlen(batch, dim, max_length, width, has_bias=False, silu_activation=True, itype=torch.bfloat16):
+def test_causal_conv1d_varlen(batch, dim, max_length, width, has_bias=False, silu_activation=True, dtype=torch.bfloat16):
+
+    padding = 3
+    total_entries = batch + 3
 
     seqlens = torch.randint(1, max_length, (batch + 1,))
     seqlens[0] = 0
+    # 1 or 2 must test
+    seqlens[-2] = 2
 
     query_start_loc = torch.cumsum(seqlens, dim=0).to(torch.int32)
 
     seqlen = query_start_loc[-1].item()
-    x = torch.randn(seqlen, dim, dtype=itype).transpose_(-1, -2)
-    weight = torch.randn(dim, width, dtype=itype)
-    bias = torch.randn(dim, dtype=itype) if has_bias else None
+    x = torch.randn(seqlen, dim, dtype=dtype).transpose_(-1, -2)
+    weight = torch.randn(dim, width, dtype=dtype)
+    bias = torch.randn(dim, dtype=dtype) if has_bias else None
 
     activation = None if not silu_activation else "silu"
 
-    #x.fill_(1)
-    #weight.fill_(1)
+    final_states = torch.randn(total_entries, dim, width - 1, dtype=dtype)
+    final_states_ref = final_states.clone()
 
-    final_states = None
-    has_initial_states = None
-    state_indices = None
+    has_initial_states = torch.randint(0, 2, (batch,), dtype=torch.bool).fill_(False)
+    state_indices = torch.randperm(total_entries, dtype=torch.int32)[:batch]
 
     out_ref = []
     out_ref_b = []
 
+    return_final_states = final_states is not None
+
     splits = torch.split(x, seqlens[1:].tolist(), dim=1)
-    for x_s in splits:
+    for i, x_s in enumerate(splits):
         out_ref_b.append(
             causal_conv1d_ref(
                 x_s.unsqueeze(0),
                 weight,
                 bias,
                 activation=activation,
-                return_final_states=False,
-                initial_states=None)
+                return_final_states=return_final_states,
+                final_states_out=(
+                    final_states_ref[state_indices[i]].unsqueeze(0)
+                    if return_final_states
+                    else None),
+                initial_states=(
+                    final_states_ref[state_indices[i]].unsqueeze(0)
+                    if has_initial_states[i]
+                    else None)
+            )
         )
     out_ref.append(torch.cat([t[0] for t in out_ref_b], dim=2))
     out_ref_tensor = torch.cat(out_ref, dim=0)
@@ -183,15 +189,16 @@ def test_causal_conv1d_varlen(batch, dim, max_length, width, has_bias=False, sil
         False)
 
     compare(out_ref_tensor.transpose(-1, -2), out.transpose(-1, -2))
+    compare(final_states_ref, final_states)
 
 
-test_causal_conv1d_varlen(14, 96, 166, 4, silu_activation=False)
+test_causal_conv1d_varlen(11, 96, 66, 4, silu_activation=False)
 
 
 def bench_causal_conv1d(batch, dim, seqlen, width, dtype=torch.bfloat16):
 
     L = 20 if batch < 4 else 1
-    niters = 1000 if batch < 4 else 100
+    niters = 200 if batch < 4 else 50
     profile = False
 
     x = torch.randn(batch, seqlen, dim).to(dtype)
@@ -202,15 +209,15 @@ def bench_causal_conv1d(batch, dim, seqlen, width, dtype=torch.bfloat16):
     weights = [weight.clone() for _ in range(L)]
 
     # warmups
-    #for _ in range(niters // 100):
-    #    for idx in range(L):
-    #        out = causal_conv1d_ref(inputs[idx], weights[idx])
+    for _ in range(niters // 100):
+        for idx in range(L):
+            out = causal_conv1d_ref(inputs[idx], weights[idx])
 
     t0 = time()
-    #with torch.autograd.profiler.profile(enabled=profile) as prof:
-    #    for _ in range(niters):
-    #        for idx in range(L):
-    #            out = causal_conv1d_ref(inputs[idx], weights[idx])   
+    with torch.autograd.profiler.profile(enabled=profile) as prof:
+        for _ in range(niters):
+            for idx in range(L):
+                out = causal_conv1d_ref(inputs[idx], weights[idx])   
     t1 = time()
     tt0 = (t1 - t0) / niters * 1000 / L # ms
 
@@ -238,6 +245,6 @@ def bench_causal_conv1d(batch, dim, seqlen, width, dtype=torch.bfloat16):
     print(f"\n### causal_conv1d: oneDNN ref: {tt0:.3f} ms; opt: {tt1:.3f} ms")
 
 
-#bench_causal_conv1d(1, 8192, 1024, 4)
-#bench_causal_conv1d(128, 8192, 1024, 4)
+bench_causal_conv1d(1, 8192, 1024, 4)
+bench_causal_conv1d(128, 8192, 1024, 4)
 
