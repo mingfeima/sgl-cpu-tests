@@ -70,7 +70,9 @@ def test_fused_expert(M, N, K, E, topk, dtype, prepack=False):
     # the actual batch size for CPU, after removing tokens not selected
     actual_M = topk_ids.size(0)
     assert(actual_M > 0)
+    print("### actual_M: ", actual_M)
 
+    print(topk_ids)
     topk_weight = torch.randn(actual_M, topk)
 
     a = torch.randn(actual_M, K, dtype=dtype) / math.sqrt(K)
@@ -117,5 +119,27 @@ def test_fused_expert(M, N, K, E, topk, dtype, prepack=False):
     res = torch.allclose(ref_out.bfloat16(), out, atol=1e-2, rtol=1e-2)
     print("### test fused experts on float8 moe, result: ", res)
 
+    # bfloat16
+    out2 = fused_experts(
+        a,
+        w1_scaled.bfloat16(),
+        w2_scaled.bfloat16(),
+        topk_weight,
+        topk_ids.to(torch.int32),
+        False,
+        False,
+        False,
+        None,
+        None,
+        None,
+        None,
+        None,
+        False)
 
-test_fused_expert(14, 128, 256, 8, num_topk, torch.bfloat16)
+    #print(ref_out.bfloat16())
+    #print(out2)
+    res2 = torch.allclose(ref_out.bfloat16(), out2, atol=1e-2, rtol=1e-2)
+    print("### test fused experts on bfloat16 moe, result: ", res2)
+
+
+test_fused_expert(14, 128, 128, 8, num_topk, torch.bfloat16)

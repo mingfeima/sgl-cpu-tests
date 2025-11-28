@@ -12,7 +12,6 @@ from utils import compare
 
 
 convert_weight_packed = torch.ops.sgl_kernel.convert_weight_packed
-convert_scale_packed = torch.ops.sgl_kernel.convert_scale_packed
 fp8_scaled_mm_cpu = torch.ops.sgl_kernel.fp8_scaled_mm_cpu
 int8_scaled_mm_with_quant = torch.ops.sgl_kernel.int8_scaled_mm_with_quant
 weight_packed_linear = torch.ops.sgl_kernel.weight_packed_linear
@@ -68,15 +67,21 @@ def run_single_test(M, N, K, has_bias):
     weights_mxfp4 = [weight_mxfp4.clone() for _ in range(L)]
     scales_mxfp4 = [scale_mxfp4.clone() for _ in range(L)]
 
+    TEST_BF16_REF = True
+    TEST_BF16 = True
+    TEST_FP8 = True
+    TEST_INT8 = True
+    TEST_MXFP4 = True
+
     t0 = time()
-    for _ in range(niters):
+    for _ in range(niters if TEST_BF16_REF else 0):
         for idx in range(L):
             ref = torch.matmul(inputs[idx], weights_bf16[idx].T)
     t1 = time()
     tt0 = (t1 - t0) / niters * 1000 * 1000 / L # us
 
     t2 = time()
-    for _ in range(niters):
+    for _ in range(niters if TEST_FP8 else 0):
         for idx in range(L):
             fp8_scaled_mm_cpu(
                 inputs[idx],
@@ -91,7 +96,7 @@ def run_single_test(M, N, K, has_bias):
     tt1 = (t3 - t2) / niters * 1000 * 1000 / L # us
 
     t4 = time()
-    for _ in range(niters):
+    for _ in range(niters if TEST_INT8 else 0):
         for idx in range(L):
             int8_scaled_mm_with_quant(
                 inputs[idx],
@@ -104,7 +109,7 @@ def run_single_test(M, N, K, has_bias):
     tt2 = (t5 - t4) / niters * 1000 * 1000 / L # us
 
     t6 = time()
-    for _ in range(niters):
+    for _ in range(niters if TEST_BF16 else 0):
         for idx in range(L):
             weight_packed_linear(
                 inputs[idx],
@@ -125,7 +130,7 @@ def run_single_test(M, N, K, has_bias):
                 True)
     t9 = time()
     tt4 = (t9 - t8) / niters * 1000 * 1000 / L # us
-    
+
     print(f"\n### gemm_fp8 benchmark: M = {M}, N = {N}, K = {K}, has_bias = {has_bias}")
     if M > 100:
         # use ms
@@ -134,11 +139,11 @@ def run_single_test(M, N, K, has_bias):
         tt2 = tt2 / 1000
         tt3 = tt3 / 1000
         tt4 = tt4 / 1000
-        print(f"gemm_bf16(native): {tt0:.3f} ms, gemm_fp8(opt): {tt1:.3f} ms, gemm_int8(opt): {tt2:.3f} ms, gemm_mxfp4(opt): {tt4:.3f} ms, gemm_bf16(opt): {tt3:.3f} ms")
+        print(f"gemm_bf16(native): {tt0:.3f} ms, gemm_bf16(opt): {tt3:.3f} ms, gemm_fp8(opt): {tt1:.3f} ms, gemm_int8(opt): {tt2:.3f} ms, gemm_mxfp4(opt): {tt4:.3f} ms")
     else:
-        print(f"gemm_bf16(native): {tt0:.3f} us, gemm_fp8(opt): {tt1:.3f} us, gemm_int8(opt): {tt2:.3f} us, gemm_mxfp4(opt): {tt4:.3f} us, gemm_bf16(opt): {tt3:.3f} us")
+        print(f"gemm_bf16(native): {tt0:.3f} us, gemm_bf16(opt): {tt3:.3f} us, gemm_fp8(opt): {tt1:.3f} us, gemm_int8(opt): {tt2:.3f} us, gemm_mxfp4(opt): {tt4:.3f} us")
 
 
 run_single_test(4, 2816, 7168, False)
-#run_single_test(4096, 7168, 2816, False)
+run_single_test(4096, 7168, 2816, False)
 #run_single_test(1024, 14336, 4096, False)
