@@ -169,7 +169,7 @@ def test_single_gemm(M, N, K, dtype, has_bias=False):
 
 
 def test_single_gemm_ext(M, N, K, dtype, has_bias=False):
-    
+
     A = torch.randn((M, K), dtype=dtype) / 10
 
     Bq = torch.randint(0, 256, (N, K // 2), dtype=torch.uint8)
@@ -184,17 +184,21 @@ def test_single_gemm_ext(M, N, K, dtype, has_bias=False):
     print("@@@ check weight scale packing format ...")
     print(torch.equal(Bs.view(N//32, 32, K//32).transpose_(1, 2).contiguous().flatten(), Bs_packed.view(-1)))
 
+    #torch.set_printoptions(profile="full")
+    #B_tmp = Bdq.view(N, K//2, 2).transpose_(0, 1).contiguous().view(K//2, N * 2)
+    #print("B with packing:", B_tmp, B_tmp.size())
+
     bias = torch.randn(N) if has_bias else None
     ref_out = torch.matmul(A.float(), Bdq.float().t()).bfloat16()
     if bias is not None:
         ref_out.add_(bias.view(1, -1))
 
     out = mxfp4_scaled_mm(A, B_packed, Bs_packed, bias, True)
-    compare(ref_out, out, True)
+    compare(ref_out, out)
 
 
-#test_single_gemm(1, 32, 32, torch.bfloat16, False)
-#test_single_gemm(1, 32, 2048, torch.bfloat16, False)
-#test_single_gemm_ext(112, 32*30, 32*11, torch.bfloat16, False)
-#test_single_gemm_ext(2, 128, 128, torch.bfloat16, True)
-test_single_gemm_ext(1, 32, 32, torch.bfloat16, False)
+test_single_gemm(1, 32, 32, torch.bfloat16, False)
+test_single_gemm(1, 32, 2048, torch.bfloat16, False)
+test_single_gemm_ext(112, 32*30, 32*11, torch.bfloat16, False)
+test_single_gemm_ext(2, 128, 128, torch.bfloat16, True)
+test_single_gemm_ext(11, 64, 96, torch.bfloat16, False)

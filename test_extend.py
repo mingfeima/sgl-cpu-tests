@@ -1,6 +1,8 @@
 import torch
 from torch.nn.functional import scaled_dot_product_attention
-from sgl_kernel.common_ops import extend_attention_cpu as extend_attention
+
+import sgl_kernel
+extend_attention = torch.ops.sgl_kernel.extend_attention_cpu
 from utils import compare
 
 torch.manual_seed(1111)

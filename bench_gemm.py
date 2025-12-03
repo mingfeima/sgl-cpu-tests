@@ -145,5 +145,5 @@ def run_single_test(M, N, K, has_bias):
 
 
 run_single_test(4, 2816, 7168, False)
-run_single_test(4096, 7168, 2816, False)
+#run_single_test(4096, 7168, 2816, False)
 #run_single_test(1024, 14336, 4096, False)
