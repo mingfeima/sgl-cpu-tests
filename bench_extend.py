@@ -5,12 +5,18 @@ from time import time
 
 torch.manual_seed(1111)
 
-niters = 1000
-nwarmups = niters // 100
 
 # N_CTX is the exact context length for MLA
 # otherwise prefix and extend take fifty-fifty
 def bench_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False):
+
+    niters = 1000
+
+    # scale `niters` for larger context length
+    scale = max(1, N_CTX // 200)
+    niters = niters // scale
+    nwarmups = max(5, niters // 100)
+
     dtype = torch.bfloat16
 
     b_seq_len_prefix = torch.full((B,), 0 if mla else N_CTX // 2, dtype=torch.int32)
@@ -24,8 +30,6 @@ def bench_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False):
     b_start_loc[1:] = torch.cumsum(b_seq_len[:-1], 0)
     b_start_loc_extend = torch.zeros((B,), dtype=torch.int32)
     b_start_loc_extend[1:] = torch.cumsum(b_seq_len_extend[:-1], 0)
-
-    #print(b_seq_len_prefix, b_seq_len_extend, b_seq_len, b_start_loc_extend)
 
     for i in range(B):
         req_to_tokens[i, : b_seq_len[i]] = torch.arange(
@@ -102,4 +106,5 @@ def bench_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False):
 
 
 # bench_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False)
-bench_extend_attention_once(4, 1024, 22, 22, 192, 128, True)
+for N_CTX in [128, 256, 500, 1000, 2000, 3500, 6400, 8000]:
+    bench_extend_attention_once(4, N_CTX, 22, 22, 192, 128, True)
