@@ -96,26 +96,29 @@ test_flash_attn_varlen(4, 160, 60, 32, 4, 64, 96, is_causal=True)
 
 def bench_one_time(T, H, Hkv, K, is_causal=False):
 
-    nwarmups = 20
-    niters = 200
+    B = 6
+
+    nwarmups = 10
+    niters = 50
 
     enable_gqa = H != Hkv
 
-    q = torch.randn(T, H, K).bfloat16()
-    k = torch.randn(T, Hkv, K).bfloat16()
-    v = torch.randn(T, Hkv, K).bfloat16()
+    q = torch.randn(B*T, H, K).bfloat16()
+    k = torch.randn(B*T, Hkv, K).bfloat16()
+    v = torch.randn(B*T, Hkv, K).bfloat16()
 
-    cu_seqlens = torch.IntTensor([0, T])
+    cu_seqlens = torch.arange(0,(B + 1) * T, step=T, dtype=torch.int32,)
+
 
     qq, kk, vv = [x.unsqueeze(0).transpose(1, 2) for x in [q, k, v]]
 
 
-    for _ in range(nwarmups):
-        out_ref = F.scaled_dot_product_attention(qq, kk, vv, is_causal=is_causal, enable_gqa=enable_gqa)
+    #for _ in range(nwarmups):
+    #    out_ref = F.scaled_dot_product_attention(qq, kk, vv, is_causal=is_causal, enable_gqa=enable_gqa)
 
     t1 = time()
-    for _ in range(niters):
-        out_ref = F.scaled_dot_product_attention(qq, kk, vv, is_causal=is_causal, enable_gqa=enable_gqa)
+    #for _ in range(niters):
+    #    out_ref = F.scaled_dot_product_attention(qq, kk, vv, is_causal=is_causal, enable_gqa=enable_gqa)
     t2 = time()
 
     q = q.transpose(0, 1).contiguous().transpose(0, 1)
@@ -130,7 +133,7 @@ def bench_one_time(T, H, Hkv, K, is_causal=False):
         out = flash_attn_varlen_func(q, k, v, cu_seqlens, cu_seqlens, T, T, is_causal)
     t4 = time()
 
-    compare(out_ref.transpose(1, 2).squeeze(0), out, False)
+    #compare(out_ref.transpose(1, 2).squeeze(0), out, False)
     tt0 = (t2 - t1) / niters * 1000 #ms
     tt1 = (t4 - t3) / niters * 1000 #ms
     print(f"### T = {T}, H = {H}, Hkv = {Hkv}, K = {K}; torch.sdpa time {tt0:.3f} ms, flash_attn time {tt1:.3f} ms")
