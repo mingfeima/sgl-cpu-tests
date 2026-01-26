@@ -104,6 +104,8 @@ def bench_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False):
     tt0 = (t1 - t0) / niters * 1000 # ms
     print(f"### extend_attention: seqlen {N_CTX}: {tt0:.3f} ms")
 
+bench_extend_attention_once(1, 4096, 32, 4, 128, 128, False)
+bench_extend_attention_once(1, 8192, 16, 2, 128, 128, False)
 
 # bench_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False)
 for N_CTX in [128, 256, 500, 1000, 2000, 3500, 6400, 8000]:

@@ -15,7 +15,7 @@ convert_weight_packed = torch.ops.sgl_kernel.convert_weight_packed
 fp8_scaled_mm_cpu = torch.ops.sgl_kernel.fp8_scaled_mm_cpu
 int8_scaled_mm_with_quant = torch.ops.sgl_kernel.int8_scaled_mm_with_quant
 weight_packed_linear = torch.ops.sgl_kernel.weight_packed_linear
-mxfp4_scaled_mm = torch.ops.sgl_kernel.mxfp4_scaled_mm_cpu
+#mxfp4_scaled_mm = torch.ops.sgl_kernel.mxfp4_scaled_mm_cpu
 
 torch.manual_seed(1111)
 
@@ -120,14 +120,14 @@ def run_single_test(M, N, K, has_bias):
     tt3 = (t7 - t6) / niters * 1000 * 1000 / L # us
 
     t8 = time()
-    for _ in range(niters):
-        for idx in range(L):
-            mxfp4_scaled_mm(
-                inputs[idx],
-                weights_mxfp4[idx],
-                scales_mxfp4[idx],
-                bias if has_bias else None,
-                True)
+#    for _ in range(niters):
+#        for idx in range(L):
+#            mxfp4_scaled_mm(
+#                inputs[idx],
+#                weights_mxfp4[idx],
+#                scales_mxfp4[idx],
+#                bias if has_bias else None,
+#                True)
     t9 = time()
     tt4 = (t9 - t8) / niters * 1000 * 1000 / L # us
 
@@ -143,7 +143,7 @@ def run_single_test(M, N, K, has_bias):
     else:
         print(f"gemm_bf16(native): {tt0:.3f} us, gemm_bf16(opt): {tt3:.3f} us, gemm_fp8(opt): {tt1:.3f} us, gemm_int8(opt): {tt2:.3f} us, gemm_mxfp4(opt): {tt4:.3f} us")
 
-
-run_single_test(4, 2816, 7168, False)
+run_single_test(384, 8192, 7168, False)
+#run_single_test(4, 2816, 7168, False)
 #run_single_test(4096, 7168, 2816, False)
 #run_single_test(1024, 14336, 4096, False)

@@ -116,9 +116,9 @@ def test_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False):
     q_extend = torch.empty((extend_token_num, H_Q, D), dtype=dtype)
 
     # trick for debugging flash attn
-    # for i in range(total_token_num):
-    #     k_buffer[i].fill_(i)
-    #     v_buffer[i].fill_(i)
+    #for i in range(total_token_num):
+    #    k_buffer[i].fill_(i)
+    #    v_buffer[i].fill_(i)
 
     for i in range(B):
         extend_start_in_buffer = b_start_loc[i] + b_seq_len_prefix[i]
@@ -130,6 +130,7 @@ def test_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False):
         q_extend[extend_start:extend_end] = torch.randn((b_seq_len_extend[i], H_Q, D), dtype=dtype)
 
     #q_extend.fill_(1)
+    #print("@@@ q_extend:", q_extend.size(), q_extend.stride())
 
     b_seq_len_extend = b_seq_len - b_seq_len_prefix
     b_start_loc_extend = torch.zeros_like(b_seq_len)
@@ -188,7 +189,10 @@ def test_extend_attention_once(B, N_CTX, H_Q, H_KV, D, DV, mla=False):
 
     compare(o_ref, o_extend)
 
+test_extend_attention_once(1, 23, 8, 2, 128, 96, False)
+
 for is_mla in [True, False]:
     test_extend_attention_once(1, 123, 1, 1, 128, 96, is_mla)
-    #test_extend_attention_once(1, 123, 16, 1, 128, 96, is_mla)
+    test_extend_attention_once(1, 123, 16, 1, 128, 96, is_mla)
     test_extend_attention_once(4, 1230, 16, 4, 128, 96, is_mla)
+    test_extend_attention_once(4, 1230, 16, 16, 128, 96, is_mla)
