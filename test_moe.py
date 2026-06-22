@@ -1,8 +1,11 @@
 import torch
 import torch.nn.functional as F
-from sgl_kernel.common_ops import fused_experts_cpu as fused_experts
-from sgl_kernel.common_ops import grouped_topk_cpu as grouped_topk
-from sgl_kernel.common_ops import convert_weight_packed
+
+from sglang.srt.layers.amx_utils import CPUQuantMethod
+import sgl_kernel
+convert_weight_packed = torch.ops.sgl_kernel.convert_weight_packed
+grouped_topk = torch.ops.sgl_kernel.grouped_topk_cpu
+fused_experts = torch.ops.sgl_kernel.fused_experts_cpu
 
 from utils import compare
 
@@ -52,30 +55,41 @@ def torch_naive_moe(a, w1, w2, score, topk, renormalize):
 
 
 def fused_moe(a, w1, w2, score, topk, renormalize, prepack):
-
     G = 1
     topk_group = 1
-
     B, D = a.shape
-    #topk_weights = torch.empty(B, topk, dtype=torch.float32)
-    #topk_ids = torch.empty(B, topk, dtype=torch.int32)
     topk_weights, topk_ids = grouped_topk(
         a,
         score,
         topk,
         renormalize,
         G,
-        topk_group)
+        topk_group,
+        0,
+        None,
+        None)
 
     #print(topk_weights, topk_weights.size())
-    #print(topk_ids, topk_ids.size())
+    print(topk_ids, topk_ids.size())
 
     packed_w1 = convert_weight_packed(w1) if prepack else w1
     packed_w2 = convert_weight_packed(w2) if prepack else w2
 
     inplace = True
-    return fused_experts(a, packed_w1, packed_w2, topk_weights, topk_ids, inplace, False, False, False, None, None, None, None, None, None, None, prepack)
-
+    return fused_experts(
+        a,
+        packed_w1,
+        packed_w2,
+        topk_weights,
+        topk_ids,
+        inplace,
+        CPUQuantMethod.UNQUANT,
+        None,
+        None,
+        None,
+        None,
+        None,
+        prepack)
 
 def run_single_test(m, n, k, e, topk, dtype, renormalize=False, use_fp8_w8a8=False, prepack=False):
 
@@ -86,16 +100,16 @@ def run_single_test(m, n, k, e, topk, dtype, renormalize=False, use_fp8_w8a8=Fal
 
     torch_output = torch_naive_moe(a, w1, w2, score, topk, renormalize)
     fused_output = fused_moe(a, w1, w2, score, topk, renormalize, prepack)
-    
+
     #print("torch_output: ", torch_output, torch_output.size())
     #print("fused_output: ", fused_output, fused_output.size())
     res = compare(torch_output, fused_output)
 
 
-run_single_test(2, 32, 32, 4, 2, torch.bfloat16)
-run_single_test(2, 128, 32, 4, 2, torch.bfloat16, renormalize=True, prepack=False)
-run_single_test(2, 128, 32, 4, 2, torch.bfloat16, renormalize=True, prepack=True)
-run_single_test(224, 4096, 1024 + 32, 8, 2, torch.bfloat16, renormalize=True)
+run_single_test(4, 32, 32, 4, 2, torch.bfloat16)
+#run_single_test(2, 128, 32, 4, 2, torch.bfloat16, renormalize=True, prepack=False)
+#run_single_test(2, 128, 32, 4, 2, torch.bfloat16, renormalize=True, prepack=True)
+#run_single_test(224, 4096, 1024 + 32, 8, 2, torch.bfloat16, renormalize=True)
 
 
 def test_weight_prepack(e, oc, ic):

@@ -57,7 +57,8 @@ def run_single_test(M, N, K, has_bias):
         bias = torch.randn(N, dtype=torch.float32)
 
     niters = 20 if M > 100 else 2000
-    L = 20
+    niters = 200
+    L = 5
 
     inputs = [data.clone() for _ in range(L)]
     weight_bf16 = torch.randn(N, K, dtype=torch.bfloat16)
@@ -143,7 +144,8 @@ def run_single_test(M, N, K, has_bias):
     else:
         print(f"gemm_bf16(native): {tt0:.3f} us, gemm_bf16(opt): {tt3:.3f} us, gemm_fp8(opt): {tt1:.3f} us, gemm_int8(opt): {tt2:.3f} us, gemm_mxfp4(opt): {tt4:.3f} us")
 
-run_single_test(384, 8192, 7168, False)
+run_single_test(1000, 18432, 2560, False)
+#run_single_test(384, 8192, 7168, False)
 #run_single_test(4, 2816, 7168, False)
 #run_single_test(4096, 7168, 2816, False)
 #run_single_test(1024, 14336, 4096, False)
